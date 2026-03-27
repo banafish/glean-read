@@ -13,7 +13,7 @@ android {
         versionCode = 1
         versionName = "1.0"
         vectorDrawables.useSupportLibrary = true
-        buildConfigField("String", "BASE_URL", "\"http://127.0.0.1:8080\"")
+        buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8080\"")
     }
     buildFeatures {
         compose = true
