@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gleanread.android.ui.CaptureUI
 import com.gleanread.android.ui.GlassyBottomSheet
+import com.gleanread.android.network.ApiConstants
 import com.gleanread.android.ui.RichExcerptCard
 import com.gleanread.android.ui.TagPill
 import kotlinx.coroutines.CoroutineScope
@@ -239,7 +240,7 @@ fun CaptureDialogV2(initialSharedContent: String, initialUrl: String, onDismiss:
  */
 private fun saveToGleanRead(content: String, url: String, thought: String, tags: Set<String>) {
     try {
-        val apiUrl = URL("http://10.0.2.2:8080/api/v1/glean/capture")
+        val apiUrl = URL(ApiConstants.CAPTURE_ENDPOINT)
         val conn = apiUrl.openConnection() as HttpURLConnection
         conn.requestMethod = "POST"
         conn.setRequestProperty("Content-Type", "application/json")
