@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: glean-read-server
+  datasource:
+    url: jdbc:postgresql://localhost:5432/gleanread
+    username: postgres
+    password: password
+    driver-class-name: org.postgresql.Driver
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    map-underscore-to-camel-case: true

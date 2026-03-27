@@ -1,0 +1,56 @@
+# --- IDEs & OS ---
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+.metadata
+.project
+.settings
+.classpath
+
+# --- Generic Build Artifacts ---
+build/
+target/
+out/
+dist/
+bin/
+**/build/
+**/target/
+**/out/
+
+# --- Android (glean-read-android) ---
+glean-read-android/.gradle/
+glean-read-android/local.properties
+glean-read-android/captures/
+glean-read-android/**/*.apk
+glean-read-android/**/*.aar
+glean-read-android/**/*.jks
+glean-read-android/**/*.keystore
+glean-read-android/google-services.json
+
+# --- Server (glean-read-server / Maven / Spring) ---
+glean-read-server/.mvn/
+glean-read-server/*.log
+glean-read-server/*.zip
+glean-read-server/*.tar.gz
+
+# --- Maven settings ---
+.m2/
+
+# --- Secrets & Config ---
+secrets.properties
+local.properties
+*.jks
+*.keystore
+*.p12
+*.pem
+
+# --- Node (if any) ---
+node_modules/
+
+# --- Temporary Files ---
+*.tmp
+*.temp
+*.swp
+*.bak
