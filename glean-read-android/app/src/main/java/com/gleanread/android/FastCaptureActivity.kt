@@ -25,9 +25,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gleanread.android.ui.CaptureUI
+import com.gleanread.android.ui.CollapsibleUrlInput
 import com.gleanread.android.ui.GlassyBottomSheet
 import com.gleanread.android.network.ApiConstants
 import com.gleanread.android.ui.RichExcerptCard
+import com.gleanread.android.ui.SourceBadge
 import com.gleanread.android.ui.TagPill
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -48,15 +50,17 @@ class FastCaptureActivity : ComponentActivity() {
         
         var sharedText = ""
         var sharedUrl = ""
-        
-        if (intent?.action == Intent.ACTION_SEND) {
-            when (intent.type) {
-                "text/plain" -> {
-                    sharedText = intent.getStringExtra(Intent.EXTRA_TEXT) ?: ""
-                    if (sharedText.startsWith("http://") || sharedText.startsWith("https://")) {
-                        sharedUrl = sharedText
-                    }
-                }
+
+        if (intent?.action == Intent.ACTION_SEND && intent.type == "text/plain") {
+            sharedText = intent.getStringExtra(Intent.EXTRA_TEXT) ?: ""
+            val subject = intent.getStringExtra(Intent.EXTRA_SUBJECT) ?: ""
+            // 委托给 UrlExtractor 策略链提取 URL（覆盖整页分享与选中文字分享两种场景）
+            sharedUrl = UrlExtractor.extract(intent) ?: ""
+
+            // 整页分享时 EXTRA_TEXT 整体即为 URL，EXTRA_SUBJECT 为文章标题
+            // 此时用标题作为摘录内容（而非留空），让书摘卡片有意义
+            if (sharedText == sharedUrl) {
+                sharedText = subject  // 标题；若没有标题则为空（卡片将显示空内容）
             }
         }
 
@@ -98,6 +102,8 @@ fun CaptureDialogV2(initialSharedContent: String, initialUrl: String, onDismiss:
     val availableTags = listOf("研究", "想法", "待读", "灵感", "摘录", "教程")
     var selectedTags by remember { mutableStateOf(setOf<String>()) }
     var isSaving by remember { mutableStateOf(false) }
+    // currentUrl：自动提取到的 URL 或用户在 CollapsibleUrlInput 中手动填写的 URL
+    var currentUrl by remember { mutableStateOf(initialUrl) }
 
     // 按钮呼吸感动效
     val transition = rememberInfiniteTransition(label = "save_breathe")
@@ -135,8 +141,18 @@ fun CaptureDialogV2(initialSharedContent: String, initialUrl: String, onDismiss:
                 )
             }
 
-            // 2. 书摘卡片预览 (Task 2.1)
+            // 2. 书摘卡片预览
             RichExcerptCard(content = initialSharedContent)
+
+            // 2.1 来源 URL 区域（提取成功 → 只读徽章；失败 → 可折叠输入框）
+            if (initialUrl.isNotEmpty()) {
+                SourceBadge(url = initialUrl)
+            } else {
+                CollapsibleUrlInput(
+                    url = currentUrl,
+                    onUrlChange = { currentUrl = it }
+                )
+            }
 
             // 3. 极简想法输入区域
             Column {
@@ -194,9 +210,9 @@ fun CaptureDialogV2(initialSharedContent: String, initialUrl: String, onDismiss:
             Button(
                 onClick = { 
                     isSaving = true
-                    // 调用保存逻辑
+                    // 调用保存逻辑，使用 currentUrl（含用户手动填写值）而非只读的 initialUrl
                     CoroutineScope(Dispatchers.IO).launch {
-                        saveToGleanRead(initialSharedContent, initialUrl, thought, selectedTags)
+                        saveToGleanRead(initialSharedContent, currentUrl, thought, selectedTags)
                         onDismiss()
                     }
                 },

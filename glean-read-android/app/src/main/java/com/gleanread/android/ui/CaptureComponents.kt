@@ -1,12 +1,15 @@
 package com.gleanread.android.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -16,6 +19,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gleanread.android.ui.CaptureUI.glassyBackground
+import java.net.URL
 
 /**
  * 书摘风格的内容预览卡片
@@ -123,3 +127,101 @@ fun GlassyBottomSheet(
         }
     }
 }
+
+/**
+ * 来源域名只读徽章 —— URL 自动提取成功时展示
+ *
+ * 展示提取到的 URL 的 host 部分（如 mp.weixin.qq.com），
+ * 让用户对摘录来源有直观确认感。
+ */
+@Composable
+fun SourceBadge(url: String) {
+    val host = remember(url) {
+        try { URL(url).host.ifEmpty { url } } catch (e: Exception) { url }
+    }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .wrapContentWidth()
+            .clip(RoundedCornerShape(50))
+            .background(Color.White.copy(alpha = 0.45f))
+            .padding(horizontal = 10.dp, vertical = 4.dp)
+    ) {
+        Text(
+            text = "🔗",
+            fontSize = 11.sp,
+            modifier = Modifier.padding(end = 4.dp)
+        )
+        Text(
+            text = host,
+            fontSize = 11.sp,
+            color = CaptureUI.DeepSpaceBlue,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
+
+/**
+ * 可折叠的 URL 输入框 —— URL 自动提取失败时展示
+ *
+ * 默认处于折叠状态（仅显示「添加来源链接」触发入口），
+ * 不强制打断极速摘录的主流程；用户可选择性地展开并粘贴原文链接。
+ */
+@Composable
+fun CollapsibleUrlInput(
+    url: String,
+    onUrlChange: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column {
+        // 触发按钮（始终显示）
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .clickable { expanded = !expanded }
+                .padding(vertical = 2.dp)
+        ) {
+            Text(
+                text = if (expanded) "🔗 来源链接" else "+ 添加来源链接",
+                fontSize = 12.sp,
+                color = CaptureUI.AuroraPurple.copy(alpha = 0.8f),
+                fontWeight = FontWeight.Medium
+            )
+        }
+
+        // 可展开的输入框
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically(),
+            exit = shrinkVertically()
+        ) {
+            OutlinedTextField(
+                value = url,
+                onValueChange = onUrlChange,
+                placeholder = {
+                    Text(
+                        "粘贴文章原文链接...",
+                        color = Color.LightGray,
+                        fontSize = 13.sp
+                    )
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 6.dp),
+                shape = RoundedCornerShape(10.dp),
+                singleLine = true,
+                textStyle = LocalTextStyle.current.copy(fontSize = 13.sp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = CaptureUI.AuroraPurple,
+                    unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
+                    focusedContainerColor = Color.White.copy(alpha = 0.45f),
+                    unfocusedContainerColor = Color.White.copy(alpha = 0.45f)
+                )
+            )
+        }
+    }
+}
+
