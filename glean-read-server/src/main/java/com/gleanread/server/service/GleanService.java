@@ -3,8 +3,10 @@ package com.gleanread.server.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.gleanread.server.domain.dto.CaptureRequest;
 import com.gleanread.server.domain.entity.Fragment;
+import com.gleanread.server.domain.entity.FragmentTag;
 import com.gleanread.server.domain.entity.Tag;
 import com.gleanread.server.mapper.FragmentMapper;
+import com.gleanread.server.mapper.FragmentTagMapper;
 import com.gleanread.server.mapper.TagMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,6 +20,7 @@ public class GleanService {
 
     private final FragmentMapper fragmentMapper;
     private final TagMapper tagMapper;
+    private final FragmentTagMapper fragmentTagMapper;
 
     /**
      * 核心：知识碎片入库、并触发标签热度计算器
@@ -39,7 +42,8 @@ public class GleanService {
                 LambdaQueryWrapper<Tag> wrapper = new LambdaQueryWrapper<>();
                 wrapper.eq(Tag::getTagName, targetParamName);
                 Tag existTag = tagMapper.selectOne(wrapper);
-                
+
+                Long tagId;
                 if (existTag == null) {
                     // 若是新产生的词汇，新增入库
                     Tag newTag = new Tag();
@@ -47,13 +51,17 @@ public class GleanService {
                     newTag.setHeatWeight(1);
                     newTag.setCreateTime(LocalDateTime.now());
                     tagMapper.insert(newTag);
+                    tagId = newTag.getId();
                 } else {
                     // 词汇已被关注过，每次引用热度指数递增+1
                     existTag.setHeatWeight(existTag.getHeatWeight() + 1);
                     tagMapper.updateById(existTag);
+                    tagId = existTag.getId();
                 }
+
+                // 写入 fragment <-> tag 中间表关联记录
+                fragmentTagMapper.insert(new FragmentTag(fragment.getId(), tagId));
             }
-            // (通常在此处还需生成 fragment <-> tag 中间表的关联数据)
         }
     }
 }

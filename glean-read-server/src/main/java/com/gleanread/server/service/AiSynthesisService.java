@@ -6,6 +6,7 @@ import com.gleanread.server.domain.entity.Fragment;
 import com.gleanread.server.domain.entity.KnowledgeTreeNode;
 import com.gleanread.server.mapper.FragmentMapper;
 import com.gleanread.server.mapper.KnowledgeTreeNodeMapper;
+import com.gleanread.server.service.llm.LlmPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,7 @@ public class AiSynthesisService {
 
     private final FragmentMapper fragmentMapper;
     private final KnowledgeTreeNodeMapper treeNodeMapper;
+    private final LlmPort llm;
 
     /**
      * 核心业务：汇聚碎片，请求 AI 合成大纲，并将结果与原始碎片完成双向关联与入库
@@ -40,9 +42,8 @@ public class AiSynthesisService {
         String prompt = buildAiSynthesisPrompt(fragments, request.getTopicName());
         log.info("向大语言模型请求的合成 Prompt内容: \n{}", prompt);
 
-        // todo 3. 阻塞请求大语言模型并获取降维综合分析结果（实现任务 4.1 集成预留）
-        // 真正的生产环境这里应该注入 OpenAiEngine 或 DashScopeEngine
-        String outlineMarkdown = mockInvokeLlm(prompt);
+        // 3. 通过 LlmPort 策略接口调用大语言模型（生产环境用 DeepSeekLlmAdapter，本地开发用 MockLlmAdapter）
+        String outlineMarkdown = llm.complete(prompt);
 
         // 4. 将 AI 萃取出的大纲落库，形成 "KnowledgeTree" 上的一根实干节点
         KnowledgeTreeNode topicNode = new KnowledgeTreeNode();
@@ -86,9 +87,5 @@ public class AiSynthesisService {
                 "2. **严丝合缝溯源**：如果某句话得出的结论或者概念是基于上面传给你的某个知识片段提取出来的，请你严格使用 Markdown加小括号（如：`(引自 碎片#ID)`）在此句末尾给原文打标记证明。这点极其核心！\n");
 
         return sb.toString();
-    }
-
-    private String mockInvokeLlm(String prompt) {
-        return "## AI 提炼合成:\n因为代码环境缺少第三方模型供应商的公私密钥，这是一段模拟的大模型流式回应。\n通过这套服务体系，碎片从孤岛走向了大陆，完成了其技术栈生命周期的跃迁。由于融入了用户随手记下的灵感 `(引自 碎片#2)` ，这棵知识树将不仅仅是一个收藏架，更是专属于开发者自己的第二大脑 `(引自 碎片#1)` ...";
     }
 }
