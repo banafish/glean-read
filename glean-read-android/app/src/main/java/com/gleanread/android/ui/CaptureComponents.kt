@@ -3,71 +3,59 @@ package com.gleanread.android.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.FormatQuote
+import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.gleanread.android.ui.CaptureUI.glassyBackground
 import java.net.URL
 
-/**
- * 书摘风格的内容预览卡片
- */
 @Composable
 fun RichExcerptCard(
     content: String,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White.copy(alpha = 0.7f)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "“",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = CaptureUI.AuroraPurple.copy(alpha = 0.6f)
-            )
-            Text(
-                text = content,
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    lineHeight = 24.sp,
-                    letterSpacing = 0.5.sp
-                ),
-                maxLines = 6,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(horizontal = 8.dp)
-            )
-            Text(
-                text = "”",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = CaptureUI.AuroraPurple.copy(alpha = 0.6f),
-                modifier = Modifier.align(Alignment.End)
-            )
-        }
+    Box(modifier = modifier.fillMaxWidth()) {
+        // 装饰性双引号背景
+        Icon(
+            imageVector = Icons.Outlined.FormatQuote,
+            contentDescription = null,
+            tint = CaptureUI.Indigo500.copy(alpha = 0.12f),
+            modifier = Modifier
+                .size(56.dp)
+                .offset(x = (-4).dp, y = (-8).dp)
+                .rotate(-6f)
+        )
+        Text(
+            text = content,
+            style = MaterialTheme.typography.bodyMedium.copy(
+                lineHeight = 24.sp,
+                letterSpacing = 0.5.sp
+            ),
+            color = CaptureUI.Slate700,
+            maxLines = 4,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 12.dp, start = 4.dp, end = 4.dp)
+        )
     }
 }
 
-/**
- * 胶囊风格的标签组件
- */
 @Composable
 fun TagPill(
     label: String,
@@ -75,25 +63,24 @@ fun TagPill(
     onClick: () -> Unit
 ) {
     Surface(
-        modifier = Modifier
-            .padding(end = 8.dp)
-            .clickable { onClick() },
+        modifier = Modifier.clickable { onClick() },
         shape = CircleShape,
-        color = if (isSelected) CaptureUI.AuroraPurple else Color.White.copy(alpha = 0.4f),
-        border = if (isSelected) null else AssistChipDefaults.assistChipBorder(enabled = true)
+        color = if (isSelected) CaptureUI.Indigo50 else Color.White,
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (isSelected) CaptureUI.Indigo200 else CaptureUI.Slate200
+        )
     ) {
         Text(
             text = label,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-            style = MaterialTheme.typography.labelMedium,
-            color = if (isSelected) Color.White else CaptureUI.DeepSpaceBlue
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            color = if (isSelected) CaptureUI.Indigo700 else CaptureUI.Slate600
         )
     }
 }
 
-/**
- * 带有拉环和毛玻璃背景的底部总容器
- */
 @Composable
 fun GlassyBottomSheet(
     onDismiss: () -> Unit,
@@ -103,37 +90,28 @@ fun GlassyBottomSheet(
         modifier = Modifier
             .fillMaxWidth()
             .wrapContentHeight()
-            .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
-            .glassyBackground(alpha = 0.6f)
             .imePadding(),
-        color = Color.Transparent // 背景由 glassyBackground 决定
+        shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
+        color = Color.White,
+        shadowElevation = 24.dp
     ) {
         Column(
-            modifier = Modifier.padding(top = 12.dp, start = 20.dp, end = 20.dp, bottom = 32.dp),
+            modifier = Modifier.padding(top = 16.dp, start = 24.dp, end = 24.dp, bottom = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 优雅拉环 (Grabber)
             Box(
                 modifier = Modifier
-                    .width(40.dp)
-                    .height(4.dp)
+                    .width(48.dp)
+                    .height(5.dp)
                     .clip(CircleShape)
-                    .background(Color.Gray.copy(alpha = 0.4f))
+                    .background(CaptureUI.Slate200)
             )
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
+            Spacer(modifier = Modifier.height(20.dp))
             content()
         }
     }
 }
 
-/**
- * 来源域名只读徽章 —— URL 自动提取成功时展示
- *
- * 展示提取到的 URL 的 host 部分（如 mp.weixin.qq.com），
- * 让用户对摘录来源有直观确认感。
- */
 @Composable
 fun SourceBadge(url: String) {
     val host = remember(url) {
@@ -143,32 +121,27 @@ fun SourceBadge(url: String) {
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .wrapContentWidth()
-            .clip(RoundedCornerShape(50))
-            .background(Color.White.copy(alpha = 0.45f))
+            // 优化：改为更柔和的半透明背景和全圆角（胶囊形状），去掉生硬的边框
+            .background(CaptureUI.Slate200.copy(alpha = 0.4f), RoundedCornerShape(percent = 50))
             .padding(horizontal = 10.dp, vertical = 4.dp)
     ) {
-        Text(
-            text = "🔗",
-            fontSize = 11.sp,
-            modifier = Modifier.padding(end = 4.dp)
+        Icon(
+            imageVector = Icons.Outlined.Link,
+            contentDescription = null,
+            tint = CaptureUI.Slate500,
+            modifier = Modifier.size(13.dp).rotate(-45f)
         )
+        Spacer(modifier = Modifier.width(4.dp))
         Text(
             text = host,
-            fontSize = 11.sp,
-            color = CaptureUI.DeepSpaceBlue,
+            fontSize = 12.sp,
+            color = CaptureUI.Slate600,
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            fontWeight = FontWeight.Medium
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
 
-/**
- * 可折叠的 URL 输入框 —— URL 自动提取失败时展示
- *
- * 默认处于折叠状态（仅显示「添加来源链接」触发入口），
- * 不强制打断极速摘录的主流程；用户可选择性地展开并粘贴原文链接。
- */
 @Composable
 fun CollapsibleUrlInput(
     url: String,
@@ -177,22 +150,27 @@ fun CollapsibleUrlInput(
     var expanded by remember { mutableStateOf(false) }
 
     Column {
-        // 触发按钮（始终显示）
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .clickable { expanded = !expanded }
-                .padding(vertical = 2.dp)
+                .padding(vertical = 2.dp) // 优化：减小这里的垂直间距
         ) {
+            Icon(
+                imageVector = Icons.Outlined.Link,
+                contentDescription = null,
+                tint = CaptureUI.Indigo500,
+                modifier = Modifier.size(14.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
             Text(
-                text = if (expanded) "🔗 来源链接" else "+ 添加来源链接",
-                fontSize = 12.sp,
-                color = CaptureUI.AuroraPurple.copy(alpha = 0.8f),
+                text = if (expanded) "来源链接" else "添加来源链接",
+                fontSize = 13.sp,
+                color = CaptureUI.Indigo600,
                 fontWeight = FontWeight.Medium
             )
         }
 
-        // 可展开的输入框
         AnimatedVisibility(
             visible = expanded,
             enter = expandVertically(),
@@ -201,27 +179,19 @@ fun CollapsibleUrlInput(
             OutlinedTextField(
                 value = url,
                 onValueChange = onUrlChange,
-                placeholder = {
-                    Text(
-                        "粘贴文章原文链接...",
-                        color = Color.LightGray,
-                        fontSize = 13.sp
-                    )
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 6.dp),
+                placeholder = { Text("粘贴文章原文链接...", color = CaptureUI.Slate400, fontSize = 13.sp) },
+                // 优化：减小输入框出现时的顶部间距
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
                 shape = RoundedCornerShape(10.dp),
                 singleLine = true,
-                textStyle = LocalTextStyle.current.copy(fontSize = 13.sp),
+                textStyle = LocalTextStyle.current.copy(fontSize = 13.sp, color = CaptureUI.Slate700),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = CaptureUI.AuroraPurple,
-                    unfocusedBorderColor = Color.White.copy(alpha = 0.5f),
-                    focusedContainerColor = Color.White.copy(alpha = 0.45f),
-                    unfocusedContainerColor = Color.White.copy(alpha = 0.45f)
+                    focusedBorderColor = CaptureUI.Indigo500,
+                    unfocusedBorderColor = CaptureUI.Slate200,
+                    focusedContainerColor = CaptureUI.Slate50,
+                    unfocusedContainerColor = CaptureUI.Slate50
                 )
             )
         }
     }
 }
-

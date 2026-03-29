@@ -1,42 +1,41 @@
 package com.gleanread.android.ui
 
-import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.RenderEffect
-import androidx.compose.ui.graphics.BlurEffect
 
 /**
- * Capture V2 UI 主题定义
- * 包含毛玻璃色彩库、渐变色资产以及通用的毛玻璃基础修饰符
+ * Capture V2 UI 主题定义 (Slate & Indigo 现代风格)
  */
 object CaptureUI {
-    // 基础色调 - 沉浸式深空蓝
-    val DeepSpaceBlue = Color(0xFF1A1A2E)
-    val AuroraPurple = Color(0xFF700B97)
-    
-    // 玻璃质感基础色 - 极高通透度的白/黑
-    val GlassyWhiteLong = Color(0x33FFFFFF) // 20% 透明度白
-    val GlassyWhiteMedium = Color(0x66FFFFFF) // 40% 透明度白
-    val GlassyBlackLow = Color(0x99000000) // 60% 透明度黑
-    
-    // 品牌渐变
+    // 现代化石板灰调色板
+    val Slate50 = Color(0xFFF8FAFC)
+    val Slate100 = Color(0xFFF1F5F9)
+    val Slate200 = Color(0xFFE2E8F0)
+    val Slate400 = Color(0xFF94A3B8)
+    val Slate500 = Color(0xFF64748B)
+    val Slate600 = Color(0xFF475569)
+    val Slate700 = Color(0xFF334155)
+    val Slate800 = Color(0xFF1E293B)
+    val Slate900 = Color(0xFF0F172A)
+
+    // 靛青/紫色点缀调色板
+    val Indigo50 = Color(0xFFEEF2FF)
+    val Indigo100 = Color(0xFFE0E7FF)
+    val Indigo200 = Color(0xFFC7D2FE)
+    val Indigo500 = Color(0xFF6366F1)
+    val Indigo600 = Color(0xFF4F46E5)
+    val Indigo700 = Color(0xFF4338CA)
+    val Purple500 = Color(0xFFA855F7)
+
     val PrimaryGradient = Brush.linearGradient(
-        colors = listOf(Color(0xFF16213E), Color(0xFF0F3460), AuroraPurple)
+        colors = listOf(Indigo500, Purple500)
     )
 
-    /**
-     * 通用的毛玻璃效果修饰符
-     * @param blur 模糊半径 (默认为 30f)
-     * @param alpha 背景白色叠加层的不透明度 (默认为 0.4f)
-     */
     fun Modifier.glassyBackground(
-        alpha: Float = 0.6f
+        alpha: Float = 1f
     ): Modifier = this.then(
-        // 移除 RenderEffect，因为它会模糊容器内的所有内容（包括文字）
-        Modifier.background(Color.White.copy(alpha = alpha))
+        Modifier.background(Color.White)
     )
 }

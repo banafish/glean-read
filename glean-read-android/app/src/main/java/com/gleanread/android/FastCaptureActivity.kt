@@ -1,25 +1,34 @@
 package com.gleanread.android
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import android.content.Intent
 import androidx.activity.compose.setContent
-import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.LocalOffer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -40,44 +49,30 @@ import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 
-/**
- * 接收来自其他应用的文本分享意图，采用沉浸式毛玻璃弹窗 (V2)
- */
 class FastCaptureActivity : ComponentActivity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
         var sharedText = ""
         var sharedUrl = ""
 
         if (intent?.action == Intent.ACTION_SEND && intent.type == "text/plain") {
             sharedText = intent.getStringExtra(Intent.EXTRA_TEXT) ?: ""
             val subject = intent.getStringExtra(Intent.EXTRA_SUBJECT) ?: ""
-            // 委托给 UrlExtractor 策略链提取 URL（覆盖整页分享与选中文字分享两种场景）
             sharedUrl = UrlExtractor.extract(intent) ?: ""
-
-            // 整页分享时 EXTRA_TEXT 整体即为 URL，EXTRA_SUBJECT 为文章标题
-            // 此时用标题作为摘录内容（而非留空），让书摘卡片有意义
-            if (sharedText == sharedUrl) {
-                sharedText = subject  // 标题；若没有标题则为空（卡片将显示空内容）
-            }
+            if (sharedText == sharedUrl) sharedText = subject
         }
 
         setContent {
-            // Android 12+ 启用系统级背景模糊 (Backdrop Blur)
-            // 在 setContent 中调用，确保 DecorView 已创建，或者使用 SideEffect
             SideEffect {
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
                     window.setBackgroundBlurRadius(50)
                 }
             }
-
             MaterialTheme {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.45f)) // 轻度变暗，突出玻璃感
+                        .background(Color.Black.copy(alpha = 0.5f))
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null
@@ -95,23 +90,20 @@ class FastCaptureActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun CaptureDialogV2(initialSharedContent: String, initialUrl: String, onDismiss: () -> Unit) {
     var thought by remember { mutableStateOf("") }
-    val availableTags = listOf("研究", "想法", "待读", "灵感", "摘录", "教程")
-    var selectedTags by remember { mutableStateOf(setOf<String>()) }
+    val availableTags = listOf("研究", "想法", "待读", "灵感", "摘录", "教程", "稍后阅读", "工作资料", "好文")
+    var selectedTags by remember { mutableStateOf(setOf<String>("研究")) }
     var isSaving by remember { mutableStateOf(false) }
-    // currentUrl：自动提取到的 URL 或用户在 CollapsibleUrlInput 中手动填写的 URL
     var currentUrl by remember { mutableStateOf(initialUrl) }
 
-    // 按钮呼吸感动效
     val transition = rememberInfiniteTransition(label = "save_breathe")
     val scaleBreathe by transition.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.05f,
+        initialValue = 1f, targetValue = 0.98f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = FastOutSlowInEasing),
+            animation = tween(1500, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "scale"
@@ -119,98 +111,175 @@ fun CaptureDialogV2(initialSharedContent: String, initialUrl: String, onDismiss:
 
     GlassyBottomSheet(onDismiss = onDismiss) {
         Column(
-            modifier = Modifier.fillMaxWidth().clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) { /* Consume clicks */ },
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {},
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // 1. 标题头
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "✨",
-                    fontSize = 20.sp,
-                    modifier = Modifier.padding(end = 8.dp)
-                )
-                Text(
-                    text = "极速摘录",
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = CaptureUI.DeepSpaceBlue
+            // 1. 标题头与无底色的纯净关闭按钮
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Outlined.AutoAwesome,
+                        contentDescription = null,
+                        tint = CaptureUI.Indigo600,
+                        modifier = Modifier.size(24.dp)
                     )
-                )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "极速摘录",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = CaptureUI.Slate800,
+                            letterSpacing = 0.5.sp,
+                            fontSize = 18.sp
+                        )
+                    )
+                }
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Close,
+                        contentDescription = "Close",
+                        tint = CaptureUI.Slate400,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
             }
 
-            // 2. 书摘卡片预览
-            RichExcerptCard(content = initialSharedContent)
-
-            // 2.1 来源 URL 区域（提取成功 → 只读徽章；失败 → 可折叠输入框）
-            if (initialUrl.isNotEmpty()) {
-                SourceBadge(url = initialUrl)
-            } else {
-                CollapsibleUrlInput(
-                    url = currentUrl,
-                    onUrlChange = { currentUrl = it }
+            // 2. 带有极致光晕 (Aura) 效果的书摘卡片
+            Box(modifier = Modifier.fillMaxWidth()) {
+                // 底层发光模糊效果
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(
+                            Brush.horizontalGradient(listOf(CaptureUI.Indigo500, CaptureUI.Purple500)),
+                            RoundedCornerShape(16.dp)
+                        )
+                        .blur(24.dp)
+                        .alpha(0.25f)
                 )
+
+                // 上层实体卡片
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(CaptureUI.Slate50, RoundedCornerShape(16.dp))
+                        .border(1.dp, CaptureUI.Slate100, RoundedCornerShape(16.dp))
+                        // 优化：四周间距微调，让整体更紧凑
+                        .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 12.dp)
+                ) {
+                    RichExcerptCard(content = initialSharedContent)
+
+                    Divider(
+                        color = CaptureUI.Slate200.copy(alpha = 0.6f),
+                        // 优化：缩小分割线上下的留白，节省空间
+                        modifier = Modifier.padding(top = 10.dp, bottom = 10.dp)
+                    )
+
+                    if (initialUrl.isNotEmpty()) {
+                        SourceBadge(url = initialUrl)
+                    } else {
+                        CollapsibleUrlInput(url = currentUrl, onUrlChange = { currentUrl = it })
+                    }
+                }
             }
 
-            // 3. 极简想法输入区域
-            Column {
-                Text(
-                    text = "附加思考",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = Color.Gray,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
+            // 3. 附加思考
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Outlined.ChatBubbleOutline,
+                        contentDescription = null,
+                        tint = CaptureUI.Slate500,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "附加思考",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = CaptureUI.Slate600
+                    )
+                }
                 OutlinedTextField(
                     value = thought,
                     onValueChange = { newVal -> thought = newVal },
-                    placeholder = { Text("此刻你的心境是...", color = Color.LightGray) },
+                    placeholder = { Text("此刻你的心境是...", color = CaptureUI.Slate400, fontSize = 14.sp) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
+                    textStyle = LocalTextStyle.current.copy(fontSize = 14.sp, color = CaptureUI.Slate800),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = CaptureUI.AuroraPurple,
-                        unfocusedBorderColor = Color.Transparent,
-                        focusedContainerColor = Color.White.copy(alpha = 0.5f),
-                        unfocusedContainerColor = Color.White.copy(alpha = 0.5f)
+                        focusedBorderColor = CaptureUI.Indigo500,
+                        unfocusedBorderColor = CaptureUI.Slate200,
+                        focusedContainerColor = CaptureUI.Slate50,
+                        unfocusedContainerColor = CaptureUI.Slate50
                     ),
-                    maxLines = 3
+                    maxLines = 3, minLines = 3
                 )
             }
 
-            // 4. 胶囊标签选择 (Task 2.3)
-            Column {
-                Text(
-                    text = "分类标记",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = Color.Gray,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    contentPadding = PaddingValues(bottom = 4.dp)
+            // 4. 标签选择 (限制高度并支持内部滚动)
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Outlined.LocalOffer, // 类似 Tag 图标
+                        contentDescription = null,
+                        tint = CaptureUI.Slate500,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "分类标记",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = CaptureUI.Slate600
+                    )
+                }
+
+                // 优化：使用 Box 限制最大高度，并开启垂直滚动
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 85.dp) // 约限制在两行半的高度，多出可滑动
+                        .verticalScroll(rememberScrollState())
                 ) {
-                    items(availableTags) { tag ->
-                        TagPill(
-                            label = tag,
-                            isSelected = selectedTags.contains(tag)
-                        ) {
-                            selectedTags = if (selectedTags.contains(tag)) {
-                                selectedTags - tag
-                            } else {
-                                selectedTags + tag
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        availableTags.forEach { tag ->
+                            TagPill(
+                                label = tag,
+                                isSelected = selectedTags.contains(tag)
+                            ) {
+                                selectedTags = if (selectedTags.contains(tag)) {
+                                    selectedTags - tag
+                                } else {
+                                    selectedTags + tag
+                                }
                             }
                         }
                     }
                 }
             }
 
-            // 5. 交互式保存按钮 (Task 3.3)
-            Spacer(modifier = Modifier.height(12.dp))
-            Button(
-                onClick = { 
+            // 5. Action Puck 动作按钮
+            Spacer(modifier = Modifier.height(4.dp))
+            Surface(
+                onClick = {
                     isSaving = true
-                    // 调用保存逻辑，使用 currentUrl（含用户手动填写值）而非只读的 initialUrl
                     CoroutineScope(Dispatchers.IO).launch {
                         saveToGleanRead(initialSharedContent, currentUrl, thought, selectedTags)
                         onDismiss()
@@ -218,31 +287,46 @@ fun CaptureDialogV2(initialSharedContent: String, initialUrl: String, onDismiss:
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
-                    .scale(if (isSaving) 0.95f else scaleBreathe),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color.Transparent
-                ),
-                contentPadding = PaddingValues()
+                    .height(68.dp)
+                    .scale(if (isSaving) 0.96f else scaleBreathe),
+                shape = RoundedCornerShape(34.dp),
+                color = Color.White,
+                border = BorderStroke(1.dp, CaptureUI.Slate200.copy(alpha = 0.8f)),
+                shadowElevation = 6.dp
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(CaptureUI.PrimaryGradient),
-                    contentAlignment = Alignment.Center
+                Row(
+                    modifier = Modifier.fillMaxSize().padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "保存并继续心流",
+                        modifier = Modifier.padding(start = 16.dp),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 5.sp, // 极宽的字间距对齐网页版效果
+                        color = CaptureUI.Slate700
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .background(CaptureUI.Slate900, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
                         if (isSaving) {
                             CircularProgressIndicator(
                                 color = Color.White,
-                                modifier = Modifier.size(24.dp),
+                                modifier = Modifier.size(20.dp),
                                 strokeWidth = 2.dp
                             )
                         } else {
-                            Icon(Icons.Default.Done, contentDescription = null, tint = Color.White)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("保存并继续心流", color = Color.White, fontWeight = FontWeight.Bold)
+                            Icon(
+                                imageVector = Icons.Outlined.Check,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
                         }
                     }
                 }
@@ -251,9 +335,6 @@ fun CaptureDialogV2(initialSharedContent: String, initialUrl: String, onDismiss:
     }
 }
 
-/**
- * 核心保存逻辑迁移
- */
 private fun saveToGleanRead(content: String, url: String, thought: String, tags: Set<String>) {
     try {
         val apiUrl = URL(ApiConstants.CAPTURE_ENDPOINT)
