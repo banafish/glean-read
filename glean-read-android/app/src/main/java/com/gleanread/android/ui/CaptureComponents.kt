@@ -1,8 +1,5 @@
 package com.gleanread.android.ui
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -29,30 +26,40 @@ import java.net.URL
 @Composable
 fun RichExcerptCard(
     content: String,
+    url: String,
     modifier: Modifier = Modifier
 ) {
-    Box(modifier = modifier.fillMaxWidth()) {
-        // 装饰性双引号背景
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(CaptureUI.Indigo50, RoundedCornerShape(20.dp))
+            .border(1.dp, Color.Transparent, RoundedCornerShape(20.dp))
+            .padding(16.dp),
+        verticalAlignment = Alignment.Top
+    ) {
         Icon(
             imageVector = Icons.Outlined.FormatQuote,
             contentDescription = null,
-            tint = CaptureUI.Indigo500.copy(alpha = 0.12f),
+            tint = CaptureUI.Slate400.copy(alpha = 0.8f),
             modifier = Modifier
-                .size(56.dp)
-                .offset(x = (-4).dp, y = (-8).dp)
-                .rotate(-6f)
+                .size(24.dp)
+                .padding(top = 2.dp)
         )
-        Text(
-            text = content,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                lineHeight = 24.sp,
-                letterSpacing = 0.5.sp
-            ),
-            color = CaptureUI.Slate700,
-            maxLines = 4,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 12.dp, start = 4.dp, end = 4.dp)
-        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = content,
+                fontSize = 15.sp,
+                color = Color(0xFF2D3748),
+                lineHeight = 22.sp,
+                letterSpacing = 0.5.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 3, // 多行截断
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            SourceBadge(url = url)
+        }
     }
 }
 
@@ -62,21 +69,25 @@ fun TagPill(
     isSelected: Boolean = false,
     onClick: () -> Unit
 ) {
-    Surface(
-        modifier = Modifier.clickable { onClick() },
-        shape = CircleShape,
-        color = if (isSelected) CaptureUI.Indigo50 else Color.White,
-        border = BorderStroke(
-            width = 1.dp,
-            color = if (isSelected) CaptureUI.Indigo200 else CaptureUI.Slate200
-        )
+    // 修复：舍弃 Surface，改用原生的 Box，防止不同机型/主题下文本颜色被覆盖失效
+    Box(
+        modifier = Modifier
+            .clip(CircleShape)
+            .background(if (isSelected) CaptureUI.Indigo600 else CaptureUI.Slate50)
+            .border(
+                width = 1.dp,
+                color = if (isSelected) Color.Transparent else CaptureUI.Slate200,
+                shape = CircleShape
+            )
+            .clickable { onClick() }
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+        contentAlignment = Alignment.Center
     ) {
         Text(
             text = label,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
-            fontSize = 13.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
-            color = if (isSelected) CaptureUI.Indigo700 else CaptureUI.Slate600
+            color = if (isSelected) Color.White else CaptureUI.Slate600
         )
     }
 }
@@ -84,29 +95,29 @@ fun TagPill(
 @Composable
 fun GlassyBottomSheet(
     onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .wrapContentHeight()
             .imePadding(),
         shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
         color = Color.White,
         shadowElevation = 24.dp
     ) {
         Column(
-            modifier = Modifier.padding(top = 16.dp, start = 24.dp, end = 24.dp, bottom = 32.dp),
+            modifier = Modifier.padding(top = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
                 modifier = Modifier
                     .width(48.dp)
-                    .height(5.dp)
+                    .height(6.dp)
                     .clip(CircleShape)
                     .background(CaptureUI.Slate200)
             )
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             content()
         }
     }
@@ -118,80 +129,22 @@ fun SourceBadge(url: String) {
         try { URL(url).host.ifEmpty { url } } catch (e: Exception) { url }
     }
     Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .wrapContentWidth()
-            // 优化：改为更柔和的半透明背景和全圆角（胶囊形状），去掉生硬的边框
-            .background(CaptureUI.Slate200.copy(alpha = 0.4f), RoundedCornerShape(percent = 50))
-            .padding(horizontal = 10.dp, vertical = 4.dp)
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = Icons.Outlined.Link,
             contentDescription = null,
-            tint = CaptureUI.Slate500,
-            modifier = Modifier.size(13.dp).rotate(-45f)
+            tint = CaptureUI.Slate400,
+            modifier = Modifier.size(12.dp).rotate(-45f)
         )
         Spacer(modifier = Modifier.width(4.dp))
         Text(
-            text = host,
+            text = host.ifEmpty { "暂无来源链接" },
             fontSize = 12.sp,
-            color = CaptureUI.Slate600,
+            color = CaptureUI.Slate400,
+            fontWeight = FontWeight.Medium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-    }
-}
-
-@Composable
-fun CollapsibleUrlInput(
-    url: String,
-    onUrlChange: (String) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Column {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .clickable { expanded = !expanded }
-                .padding(vertical = 2.dp) // 优化：减小这里的垂直间距
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Link,
-                contentDescription = null,
-                tint = CaptureUI.Indigo500,
-                modifier = Modifier.size(14.dp)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = if (expanded) "来源链接" else "添加来源链接",
-                fontSize = 13.sp,
-                color = CaptureUI.Indigo600,
-                fontWeight = FontWeight.Medium
-            )
-        }
-
-        AnimatedVisibility(
-            visible = expanded,
-            enter = expandVertically(),
-            exit = shrinkVertically()
-        ) {
-            OutlinedTextField(
-                value = url,
-                onValueChange = onUrlChange,
-                placeholder = { Text("粘贴文章原文链接...", color = CaptureUI.Slate400, fontSize = 13.sp) },
-                // 优化：减小输入框出现时的顶部间距
-                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-                shape = RoundedCornerShape(10.dp),
-                singleLine = true,
-                textStyle = LocalTextStyle.current.copy(fontSize = 13.sp, color = CaptureUI.Slate700),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = CaptureUI.Indigo500,
-                    unfocusedBorderColor = CaptureUI.Slate200,
-                    focusedContainerColor = CaptureUI.Slate50,
-                    unfocusedContainerColor = CaptureUI.Slate50
-                )
-            )
-        }
     }
 }
