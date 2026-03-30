@@ -236,7 +236,7 @@ fun CaptureDialogV2(initialSharedContent: String, initialUrl: String, onDismiss:
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             // 左侧：标签与链接图标
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 // 标签按钮
                                 val tagMenuBtnActive = selectedTags.isNotEmpty() || showTagMenu
                                 val tagMenuBtnBg = Color.Transparent // 2. 去掉选中时的背景色
@@ -261,7 +261,7 @@ fun CaptureDialogV2(initialSharedContent: String, initialUrl: String, onDismiss:
                                             imageVector = Icons.Outlined.LocalOffer,
                                             contentDescription = "Tags",
                                             tint = tagMenuBtnTint,
-                                            modifier = Modifier.size(18.dp)
+                                            modifier = Modifier.size(22.dp)
                                         )
                                         if (selectedTags.isNotEmpty()) {
                                             Spacer(modifier = Modifier.width(4.dp))
@@ -301,7 +301,7 @@ fun CaptureDialogV2(initialSharedContent: String, initialUrl: String, onDismiss:
                                         imageVector = Icons.Outlined.Link,
                                         contentDescription = "Link",
                                         tint = linkMenuBtnTint,
-                                        modifier = Modifier.padding(8.dp).size(18.dp)
+                                        modifier = Modifier.padding(4.dp).size(22.dp)
                                     )
                                 }
                             }
