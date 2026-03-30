@@ -16,9 +16,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape // 加上这一行导入
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -47,7 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.gleanread.android.network.ApiConstants
 import com.gleanread.android.ui.CaptureUI
-import com.gleanread.android.ui.GlassyBottomSheet
+import com.gleanread.android.ui.CaptureBottomSheet
 import com.gleanread.android.ui.RichExcerptCard
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -72,16 +74,19 @@ class FastCaptureActivity : ComponentActivity() {
         }
 
         setContent {
+            val isDark = isSystemInDarkTheme()
             SideEffect {
+                // 对于 OLED 模式，背景模糊是不必要的，但保留不会影响功能
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                    window.setBackgroundBlurRadius(50)
+                    window.setBackgroundBlurRadius(if(isDark) 1 else 50)
                 }
             }
             MaterialTheme {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.5f))
+                        // OLED 模式下采用深黑色遮罩 (Black 60%)
+                        .background(Color.Black.copy(alpha = if (isDark) 0.6f else 0.5f))
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null
@@ -102,8 +107,9 @@ class FastCaptureActivity : ComponentActivity() {
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CaptureDialogV2(initialSharedContent: String, initialUrl: String, onDismiss: () -> Unit) {
+    val isDark = isSystemInDarkTheme()
     var thought by remember { mutableStateOf("") }
-    val availableTags = listOf("研究", "想法", "待读", "灵感", "摘录", "教程", "稍后阅读")
+    val availableTags = listOf("研究", "想法", "待读", "灵感", "摘录", "教程", "稍后阅读", "研究2", "想法2", "待读2", "灵感2", "摘录2", "教程2")
     var selectedTags by remember { mutableStateOf(setOf<String>()) }
     var currentUrl by remember { mutableStateOf(initialUrl) }
 
@@ -114,26 +120,26 @@ fun CaptureDialogV2(initialSharedContent: String, initialUrl: String, onDismiss:
     var showLinkMenu by remember { mutableStateOf(false) }
     var tempLink by remember { mutableStateOf("") }
 
-    val containerBgColor by animateColorAsState(
-        targetValue = if (isInputFocused || showTagMenu || showLinkMenu) Color.White else CaptureUI.Slate100,
-        label = "bg_color"
-    )
-    val containerBorderColor by animateColorAsState(
-        targetValue = if (isInputFocused || showTagMenu || showLinkMenu) CaptureUI.Indigo100 else Color.Transparent,
-        label = "border_color"
-    )
+    // 主题适配动态色值
+    val targetBgColor = if (isDark) CaptureUI.OledCard else {
+        if (isInputFocused || showTagMenu || showLinkMenu) Color.White else CaptureUI.Slate100
+    }
+    val targetBorderColor = if (isDark) CaptureUI.OledBorder else {
+        if (isInputFocused || showTagMenu || showLinkMenu) CaptureUI.Indigo100 else Color.Transparent
+    }
 
-    // 严苛的高度控制：底部弹出只占屏幕的 54%，实现全屏无滚动
-    GlassyBottomSheet(
+    val containerBgColor by animateColorAsState(targetValue = targetBgColor, label = "bg_color")
+    val containerBorderColor by animateColorAsState(targetValue = targetBorderColor, label = "border_color")
+
+    CaptureBottomSheet(
         onDismiss = onDismiss,
         modifier = Modifier.fillMaxHeight(0.54f)
     ) {
-        // 使用 Box 包装整个内容，允许弹出层 (Tag/Link Menu) 突破输入区的 weight 限制向上生长
         Box(modifier = Modifier.fillMaxSize()) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.White)
+                    .background(Color.Transparent)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
@@ -150,7 +156,7 @@ fun CaptureDialogV2(initialSharedContent: String, initialUrl: String, onDismiss:
                     Icon(
                         imageVector = Icons.Outlined.AutoAwesome,
                         contentDescription = null,
-                        tint = CaptureUI.Indigo600,
+                        tint = if (isDark) CaptureUI.OledIconTint else CaptureUI.Indigo600,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
@@ -158,7 +164,7 @@ fun CaptureDialogV2(initialSharedContent: String, initialUrl: String, onDismiss:
                         text = "极速摘录",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = CaptureUI.Slate800,
+                            color = if (isDark) CaptureUI.OledTextHeader else CaptureUI.Slate800,
                             letterSpacing = 0.5.sp,
                             fontSize = 17.sp
                         )
@@ -182,7 +188,7 @@ fun CaptureDialogV2(initialSharedContent: String, initialUrl: String, onDismiss:
                         modifier = Modifier
                             .fillMaxSize()
                             .shadow(
-                                elevation = if (isInputFocused || showTagMenu || showLinkMenu) 12.dp else 0.dp,
+                                elevation = if ((isInputFocused || showTagMenu || showLinkMenu) && !isDark) 12.dp else 0.dp,
                                 shape = RoundedCornerShape(24.dp),
                                 spotColor = CaptureUI.Indigo500.copy(alpha = 0.1f)
                             )
@@ -203,16 +209,16 @@ fun CaptureDialogV2(initialSharedContent: String, initialUrl: String, onDismiss:
                                 },
                             textStyle = TextStyle(
                                 fontSize = 15.sp,
-                                color = CaptureUI.Slate700,
+                                color = if (isDark) CaptureUI.OledTextPrimary else CaptureUI.Slate700,
                                 lineHeight = 24.sp
                             ),
-                            cursorBrush = SolidColor(CaptureUI.Indigo500),
+                            cursorBrush = SolidColor(if (isDark) CaptureUI.OledIconTint else CaptureUI.Indigo500),
                             decorationBox = { innerTextField ->
                                 Box {
                                     if (thought.isEmpty()) {
                                         Text(
-                                            text = "此刻你的心境是...",
-                                            color = CaptureUI.Slate400.copy(alpha = 0.8f),
+                                            text = "此刻你的想法是...",
+                                            color = if (isDark) CaptureUI.OledTextPlaceholder else CaptureUI.Slate400.copy(alpha = 0.8f),
                                             fontSize = 15.sp
                                         )
                                     }
@@ -232,9 +238,17 @@ fun CaptureDialogV2(initialSharedContent: String, initialUrl: String, onDismiss:
                             // 左侧：标签与链接图标
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 // 标签按钮
+                                val tagMenuBtnActive = selectedTags.isNotEmpty() || showTagMenu
+                                val tagMenuBtnBg = Color.Transparent // 2. 去掉选中时的背景色
+                                val tagMenuBtnTint = if (isDark) {
+                                    if (tagMenuBtnActive) CaptureUI.OledIconTint else CaptureUI.OledTextSecondary
+                                } else {
+                                    if (tagMenuBtnActive) CaptureUI.Indigo600 else CaptureUI.Slate400
+                                }
+
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
-                                    color = if (selectedTags.isNotEmpty() || showTagMenu) CaptureUI.Indigo50 else Color.Transparent,
+                                    color = tagMenuBtnBg,
                                     modifier = Modifier.clickable(
                                         interactionSource = remember { MutableInteractionSource() }, indication = null
                                     ) { showTagMenu = !showTagMenu; showLinkMenu = false }
@@ -246,7 +260,7 @@ fun CaptureDialogV2(initialSharedContent: String, initialUrl: String, onDismiss:
                                         Icon(
                                             imageVector = Icons.Outlined.LocalOffer,
                                             contentDescription = "Tags",
-                                            tint = if (selectedTags.isNotEmpty() || showTagMenu) CaptureUI.Indigo600 else CaptureUI.Slate400,
+                                            tint = tagMenuBtnTint,
                                             modifier = Modifier.size(18.dp)
                                         )
                                         if (selectedTags.isNotEmpty()) {
@@ -256,7 +270,7 @@ fun CaptureDialogV2(initialSharedContent: String, initialUrl: String, onDismiss:
                                                 text = tagText,
                                                 fontSize = 11.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                color = CaptureUI.Indigo600,
+                                                color = tagMenuBtnTint,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis,
                                                 modifier = Modifier.widthIn(max = 50.dp)
@@ -266,9 +280,16 @@ fun CaptureDialogV2(initialSharedContent: String, initialUrl: String, onDismiss:
                                 }
 
                                 // 链接按钮
+                                val linkMenuBtnBg = Color.Transparent // 同步去掉链接按钮选中时的背景色保持一致
+                                val linkMenuBtnTint = if (isDark) {
+                                    if (showLinkMenu) CaptureUI.OledIconTint else CaptureUI.OledTextSecondary
+                                } else {
+                                    if (showLinkMenu) CaptureUI.Indigo600 else CaptureUI.Slate400
+                                }
+
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
-                                    color = if (showLinkMenu) CaptureUI.Indigo50 else Color.Transparent,
+                                    color = linkMenuBtnBg,
                                     modifier = Modifier.clickable(
                                         interactionSource = remember { MutableInteractionSource() }, indication = null
                                     ) {
@@ -279,13 +300,21 @@ fun CaptureDialogV2(initialSharedContent: String, initialUrl: String, onDismiss:
                                     Icon(
                                         imageVector = Icons.Outlined.Link,
                                         contentDescription = "Link",
-                                        tint = if (showLinkMenu) CaptureUI.Indigo600 else CaptureUI.Slate400,
+                                        tint = linkMenuBtnTint,
                                         modifier = Modifier.padding(8.dp).size(18.dp)
                                     )
                                 }
                             }
 
                             // 右侧：保存发送键
+                            val thoughtNotEmpty = thought.isNotEmpty()
+                            val saveBtnBg = if (isDark) {
+                                // 2. 深色模式下不可点时提亮背景色（OledHandle 替代 OledCard），使其从深色背景中显现出来
+                                if (thoughtNotEmpty) CaptureUI.OledIconTint else CaptureUI.OledHandle
+                            } else {
+                                if (thoughtNotEmpty) CaptureUI.Indigo600 else CaptureUI.Slate800
+                            }
+
                             Surface(
                                 onClick = {
                                     if (!isSaving) {
@@ -296,16 +325,21 @@ fun CaptureDialogV2(initialSharedContent: String, initialUrl: String, onDismiss:
                                         }
                                     }
                                 },
-                                shape = RoundedCornerShape(12.dp),
-                                color = if (thought.isNotEmpty()) CaptureUI.Indigo600 else CaptureUI.Slate800,
-                                shadowElevation = if (thought.isNotEmpty()) 6.dp else 2.dp
+                                shape = CircleShape, // 1. 修改为椭圆形 (即 Compose 里的胶囊形状 CircleShape)
+                                color = saveBtnBg,
+                                border = if (isDark && !thoughtNotEmpty) BorderStroke(1.dp, CaptureUI.OledBorder) else null,
+                                shadowElevation = if (isDark) 0.dp else (if (thoughtNotEmpty) 6.dp else 2.dp)
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp), // 稍微拉大水平宽度让胶囊感更好
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     if (isSaving) {
-                                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                        CircularProgressIndicator(
+                                            color = Color.White, // 统一使用白色以确保在彩色按钮上清晰可见
+                                            modifier = Modifier.size(16.dp),
+                                            strokeWidth = 2.dp
+                                        )
                                     } else {
                                         Text(
                                             text = "保存并继续",
@@ -328,7 +362,7 @@ fun CaptureDialogV2(initialSharedContent: String, initialUrl: String, onDismiss:
                 }
             }
 
-            // 交互层覆盖：用于点击空白处关闭气泡
+            // 交互层覆盖
             if (showTagMenu || showLinkMenu) {
                 Box(
                     modifier = Modifier
@@ -340,8 +374,9 @@ fun CaptureDialogV2(initialSharedContent: String, initialUrl: String, onDismiss:
                 )
             }
 
-            // 标签弹出层 (移动到根容器 Box 中，彻底解除高度受输入框 bounds 限制的问题)
+            // 弹出层组件
             TagMenuPopup(
+                isDark = isDark,
                 showTagMenu = showTagMenu,
                 availableTags = availableTags,
                 selectedTags = selectedTags,
@@ -351,8 +386,8 @@ fun CaptureDialogV2(initialSharedContent: String, initialUrl: String, onDismiss:
                 onClearTags = { selectedTags = emptySet() }
             )
 
-            // 链接弹出层
             LinkMenuPopup(
+                isDark = isDark,
                 showLinkMenu = showLinkMenu,
                 tempLink = tempLink,
                 onTempLinkChange = { tempLink = it },
@@ -369,24 +404,39 @@ fun CaptureDialogV2(initialSharedContent: String, initialUrl: String, onDismiss:
 // 扩展气泡组件区
 // ========================
 
-/**
- * 修复定制系统深色模式强制反色的问题。
- * 完全不使用 Surface，纯用最底层的 Box 渲染保证极高的色彩安全性。
- */
 @Composable
 private fun PopupTagPill(
     label: String,
     isSelected: Boolean,
+    isDark: Boolean,
     onClick: () -> Unit
 ) {
+    val bgColor = if (isDark) {
+        if (isSelected) CaptureUI.OledIconTint else CaptureUI.OledCard
+    } else {
+        if (isSelected) CaptureUI.Indigo600 else Color(0xFFF1F5F9)
+    }
+
+    val borderColor = if (isDark) {
+        if (isSelected) Color.Transparent else CaptureUI.OledBorder
+    } else {
+        if (isSelected) Color.Transparent else Color(0xFFE2E8F0)
+    }
+
+    val textColor = if (isDark) {
+        if (isSelected) Color.White else CaptureUI.OledTextSecondary
+    } else {
+        if (isSelected) Color.White else Color(0xFF334155)
+    }
+
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(50))
-            .background(if (isSelected) CaptureUI.Indigo600 else Color(0xFFF1F5F9)) // 强制底色 (Slate100)
+            .background(bgColor)
             .clickable { onClick() }
             .border(
                 width = 1.dp,
-                color = if (isSelected) Color.Transparent else Color(0xFFE2E8F0), // 强制边框色 (Slate200)
+                color = borderColor,
                 shape = RoundedCornerShape(50)
             )
             .padding(horizontal = 14.dp, vertical = 6.dp),
@@ -396,7 +446,7 @@ private fun PopupTagPill(
             text = label,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
-            color = if (isSelected) Color.White else Color(0xFF334155) // 强制文字色 (Slate700) 防止变白
+            color = textColor
         )
     }
 }
@@ -404,38 +454,33 @@ private fun PopupTagPill(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun BoxScope.TagMenuPopup(
+    isDark: Boolean,
     showTagMenu: Boolean,
     availableTags: List<String>,
     selectedTags: Set<String>,
     onTagSelected: (String) -> Unit,
     onClearTags: () -> Unit
 ) {
-    // 修复：改用 ScaleIn 缩放动画取代 SlideIn 位移，彻底解决动画期间由于裁剪导致的“矩形直角阴影”问题
     AnimatedVisibility(
         visible = showTagMenu,
         enter = fadeIn(tween(200)) + scaleIn(initialScale = 0.95f, animationSpec = tween(200), transformOrigin = TransformOrigin(0f, 1f)),
         exit = fadeOut(tween(150)) + scaleOut(targetScale = 0.95f, animationSpec = tween(150), transformOrigin = TransformOrigin(0f, 1f)),
         modifier = Modifier
             .align(Alignment.BottomStart)
-            // 补偿内部 16dp 的留白 padding，确保视觉位置维持在 68dp/4dp
-            // 关键修复：Compose 不允许负 padding，改用 offset 实现负向偏移
-            .padding(bottom = 52.dp) 
+            .padding(bottom = 52.dp)
             .offset(x = (-12).dp)
             .graphicsLayer { clip = false }
     ) {
-        // 关键修复：在 AnimatedVisibility 内部增加一层透明 padding (16dp)
-        // 强制扩大动画容器的边界，使得阴影绘制在容器内部，从而彻底避免被裁剪变方
-        Box(modifier = Modifier.padding(16.dp)) {
-            Surface(
-                modifier = Modifier.width(260.dp).graphicsLayer { clip = false },
-                shadowElevation = 12.dp,
+        Column(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 16.dp)) {
+        Surface(
+                modifier = Modifier.width(280.dp).graphicsLayer { clip = false }, // 1. 加宽到 280dp，确保刚好能放下一行4个两字标签，消除右侧过多留白
+                shadowElevation = if (isDark) 0.dp else 12.dp,
                 shape = RoundedCornerShape(16.dp),
-                color = Color.White,
-                border = BorderStroke(1.dp, CaptureUI.Slate100)
+                color = if (isDark) CaptureUI.OledSheet else Color.White,
+                border = if (isDark) BorderStroke(1.dp, CaptureUI.OledBorder) else BorderStroke(1.dp, CaptureUI.Slate100)
             ) {
-                // “以底部为基准向上增长”：将内容顺序调整为 [内容] -> [标题/功能行]
-                Column(modifier = Modifier.padding(12.dp)) {
-                    // 1. 标签云区域 (上方)
+                Column(modifier = Modifier.padding(16.dp)) {
+                    // 1. 标签云区域
                     Column(
                         modifier = Modifier
                             .heightIn(max = 160.dp)
@@ -443,13 +488,14 @@ private fun BoxScope.TagMenuPopup(
                     ) {
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             availableTags.forEach { tag ->
                                 PopupTagPill(
                                     label = tag,
-                                    isSelected = selectedTags.contains(tag)
+                                    isSelected = selectedTags.contains(tag),
+                                    isDark = isDark
                                 ) {
                                     onTagSelected(tag)
                                 }
@@ -457,21 +503,30 @@ private fun BoxScope.TagMenuPopup(
                         }
                     }
 
-                    // 2. 标题与操作行 (下方)
+                    Spacer(modifier = Modifier.height(16.dp)) // 去掉 HorizontalDivider 分割线，仅保留留白间距
+
+                    // 2. 标题与操作行 (重新排版)
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp, bottom = 4.dp, start = 4.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("选择分类标签", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = CaptureUI.Slate400)
+                        Text(
+                            text = "选择分类标签",
+                            fontSize = 12.sp, // 稍微放大以匹配常规字号层级
+                            fontWeight = FontWeight.Medium,
+                            color = if (isDark) CaptureUI.OledTextSecondary else CaptureUI.Slate400
+                        )
                         if (selectedTags.isNotEmpty()) {
                             Text(
                                 text = "清空",
-                                fontSize = 11.sp,
-                                color = CaptureUI.Indigo500,
-                                modifier = Modifier.clickable { onClearTags() }
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = if (isDark) CaptureUI.OledIconTint else CaptureUI.Indigo500,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .clickable { onClearTags() }
+                                    .padding(horizontal = 4.dp, vertical = 2.dp) // 扩大点击热区
                             )
                         }
                     }
@@ -483,6 +538,7 @@ private fun BoxScope.TagMenuPopup(
 
 @Composable
 private fun BoxScope.LinkMenuPopup(
+    isDark: Boolean,
     showLinkMenu: Boolean,
     tempLink: String,
     onTempLinkChange: (String) -> Unit,
@@ -494,33 +550,46 @@ private fun BoxScope.LinkMenuPopup(
         exit = fadeOut(tween(150)) + scaleOut(targetScale = 0.95f, animationSpec = tween(150), transformOrigin = TransformOrigin(0f, 1f)),
         modifier = Modifier
             .align(Alignment.BottomStart)
-            .padding(bottom = 52.dp) // 同步补偿 16dp 留白
+            .padding(bottom = 52.dp)
             .offset(x = (-12).dp)
             .graphicsLayer { clip = false }
     ) {
         Box(modifier = Modifier.padding(16.dp)) {
             Surface(
                 modifier = Modifier.width(280.dp).graphicsLayer { clip = false },
-                shadowElevation = 12.dp,
+                shadowElevation = if (isDark) 0.dp else 12.dp,
                 shape = RoundedCornerShape(16.dp),
-                color = Color.White,
-                border = BorderStroke(1.dp, CaptureUI.Slate100)
+                color = if (isDark) CaptureUI.OledSheet else Color.White,
+                border = if (isDark) BorderStroke(1.dp, CaptureUI.OledBorder) else BorderStroke(1.dp, CaptureUI.Slate100)
             ) {
                 Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    val inputBg = if (isDark) CaptureUI.OledCard else CaptureUI.Slate50
+                    val inputBorder = if (isDark) CaptureUI.OledBorder else CaptureUI.Slate200
+
                     BasicTextField(
                         value = tempLink,
                         onValueChange = onTempLinkChange,
                         modifier = Modifier
                             .weight(1f)
-                            .background(CaptureUI.Slate50, RoundedCornerShape(8.dp))
-                            .border(1.dp, CaptureUI.Slate200, RoundedCornerShape(8.dp))
+                            .background(inputBg, RoundedCornerShape(8.dp))
+                            .border(1.dp, inputBorder, RoundedCornerShape(8.dp))
                             .padding(horizontal = 12.dp, vertical = 8.dp),
-                        textStyle = TextStyle(fontSize = 13.sp, color = CaptureUI.Slate700),
+                        textStyle = TextStyle(
+                            fontSize = 13.sp,
+                            color = if (isDark) CaptureUI.OledTextPrimary else CaptureUI.Slate700
+                        ),
                         singleLine = true,
+                        cursorBrush = SolidColor(if (isDark) CaptureUI.OledIconTint else CaptureUI.Indigo500),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = { onSaveLink() }),
                         decorationBox = { inner ->
-                            if(tempLink.isEmpty()) Text("http://...", fontSize=13.sp, color=CaptureUI.Slate400)
+                            if(tempLink.isEmpty()) {
+                                Text(
+                                    text = "http://...",
+                                    fontSize = 13.sp,
+                                    color = if (isDark) CaptureUI.OledTextPlaceholder else CaptureUI.Slate400
+                                )
+                            }
                             inner()
                         }
                     )
@@ -528,9 +597,16 @@ private fun BoxScope.LinkMenuPopup(
                     Surface(
                         onClick = { onSaveLink() },
                         shape = RoundedCornerShape(8.dp),
-                        color = CaptureUI.Slate800
+                        color = if (isDark) CaptureUI.OledButtonBg else CaptureUI.Slate800,
+                        border = if (isDark) BorderStroke(1.dp, CaptureUI.OledBorder) else null
                     ) {
-                        Text("确定", fontSize = 13.sp, color = Color.White, fontWeight = FontWeight.Medium, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
+                        Text(
+                            text = "确定",
+                            fontSize = 13.sp,
+                            color = if (isDark) CaptureUI.OledTextPrimary else Color.White,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                        )
                     }
                 }
             }
