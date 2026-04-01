@@ -1,10 +1,10 @@
 package com.gleanread.server.infrastructure.persistence.repository;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.gleanread.server.domain.model.tag.FragmentTag;
+import com.gleanread.server.domain.model.tag.ExcerptTag;
 import com.gleanread.server.domain.model.tag.Tag;
 import com.gleanread.server.domain.model.tag.TagRepository;
-import com.gleanread.server.infrastructure.persistence.mapper.FragmentTagMapper;
+import com.gleanread.server.infrastructure.persistence.mapper.ExcerptTagMapper;
 import com.gleanread.server.infrastructure.persistence.mapper.TagMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
@@ -16,7 +16,7 @@ import java.util.Optional;
 public class TagRepositoryImpl implements TagRepository {
 
     private final TagMapper tagMapper;
-    private final FragmentTagMapper fragmentTagMapper;
+    private final ExcerptTagMapper excerptTagMapper;
 
     @Override
     public Optional<Tag> findByName(String tagName) {
@@ -37,7 +37,7 @@ public class TagRepositoryImpl implements TagRepository {
     }
 
     @Override
-    public void saveFragmentTagRelation(Long fragmentId, Long tagId) {
-        fragmentTagMapper.insert(new FragmentTag(fragmentId, tagId));
+    public void saveExcerptTagRelation(Long excerptId, Long tagId) {
+        excerptTagMapper.insert(new ExcerptTag(excerptId, tagId));
     }
 }

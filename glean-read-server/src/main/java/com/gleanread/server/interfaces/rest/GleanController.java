@@ -14,11 +14,11 @@ public class GleanController {
     private final GleanAppService gleanService;
 
     /**
-     * 对接移动端：上报新产生的碎片
+     * 对接移动端：上报新产生的摘录
      */
     @PostMapping("/capture")
     public ResponseEntity<String> capture(@RequestBody CaptureRequest request) {
-        gleanService.captureFragment(request);
-        return ResponseEntity.ok("Fragment knowledge captured and stashed to inbox!");
+        gleanService.captureExcerpt(request);
+        return ResponseEntity.ok("Excerpt knowledge captured and stashed to inbox!");
     }
 }

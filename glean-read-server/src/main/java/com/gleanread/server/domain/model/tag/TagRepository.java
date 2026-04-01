@@ -10,5 +10,5 @@ public interface TagRepository {
     
     void update(Tag tag);
 
-    void saveFragmentTagRelation(Long fragmentId, Long tagId);
+    void saveExcerptTagRelation(Long excerptId, Long tagId);
 }

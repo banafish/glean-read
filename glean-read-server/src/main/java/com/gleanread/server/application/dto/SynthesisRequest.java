@@ -11,6 +11,6 @@ public class SynthesisRequest {
     // 可能隶属的父知识树节点 ID（可选）
     private Long parentNodeId;
     
-    // 圈定的要发送给大模型处理的原始纯碎片 ID 集合
-    private List<Long> fragmentIds;
+    // 圈定的要发送给大模型处理的原始纯摘录 ID 集合
+    private List<Long> excerptIds;
 }

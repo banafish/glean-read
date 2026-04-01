@@ -2,11 +2,11 @@ package com.gleanread.server.application.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.gleanread.server.domain.model.fragment.Fragment;
-import com.gleanread.server.domain.model.tag.FragmentTag;
+import com.gleanread.server.domain.model.excerpt.Excerpt;
+import com.gleanread.server.domain.model.tag.ExcerptTag;
 import com.gleanread.server.domain.model.tag.Tag;
-import com.gleanread.server.infrastructure.persistence.mapper.FragmentMapper;
-import com.gleanread.server.infrastructure.persistence.mapper.FragmentTagMapper;
+import com.gleanread.server.infrastructure.persistence.mapper.ExcerptMapper;
+import com.gleanread.server.infrastructure.persistence.mapper.ExcerptTagMapper;
 import com.gleanread.server.infrastructure.persistence.mapper.TagMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -22,17 +22,17 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class InboxQueryAppService {
 
-    private final FragmentMapper fragmentMapper;
+    private final ExcerptMapper excerptMapper;
     private final TagMapper tagMapper;
-    private final FragmentTagMapper fragmentTagMapper;
+    private final ExcerptTagMapper excerptTagMapper;
 
-    public Page<Fragment> getInboxFragments(long current, long size) {
-        LambdaQueryWrapper<Fragment> wrapper = new LambdaQueryWrapper<>();
+    public Page<Excerpt> getInboxExcerpts(long current, long size) {
+        LambdaQueryWrapper<Excerpt> wrapper = new LambdaQueryWrapper<>();
         // 核心过滤条件：treeNodeId为空即代表未出 Inbox
-        wrapper.isNull(Fragment::getTreeNodeId)
-                .orderByDesc(Fragment::getCreateTime);
+        wrapper.isNull(Excerpt::getTreeNodeId)
+                .orderByDesc(Excerpt::getCreateTime);
 
-        return fragmentMapper.selectPage(new Page<>(current, size), wrapper);
+        return excerptMapper.selectPage(new Page<>(current, size), wrapper);
     }
 
     public List<Tag> getTagCloud() {
@@ -42,25 +42,25 @@ public class InboxQueryAppService {
         return tagMapper.selectList(wrapper);
     }
 
-    public Page<Fragment> getFragmentsByTag(Long tagId, long current, long size) {
-        // 1. 从中间表查询该标签关联的所有碎片 ID
-        LambdaQueryWrapper<FragmentTag> ftWrapper = new LambdaQueryWrapper<>();
-        ftWrapper.eq(FragmentTag::getTagId, tagId);
-        List<Long> fragmentIds = fragmentTagMapper.selectList(ftWrapper)
+    public Page<Excerpt> getExcerptsByTag(Long tagId, long current, long size) {
+        // 1. 从中间表查询该标签关联的所有摘录 ID
+        LambdaQueryWrapper<ExcerptTag> ftWrapper = new LambdaQueryWrapper<>();
+        ftWrapper.eq(ExcerptTag::getTagId, tagId);
+        List<Long> excerptIds = excerptTagMapper.selectList(ftWrapper)
                 .stream()
-                .map(FragmentTag::getFragmentId)
+                .map(ExcerptTag::getExcerptId)
                 .collect(Collectors.toList());
 
-        if (fragmentIds.isEmpty()) {
+        if (excerptIds.isEmpty()) {
             return new Page<>(current, size);
         }
 
-        // 2. 再过滤出其中处于 Inbox 状态（treeNodeId IS NULL）的碎片
-        LambdaQueryWrapper<Fragment> fragmentWrapper = new LambdaQueryWrapper<>();
-        fragmentWrapper.in(Fragment::getId, fragmentIds)
-                .isNull(Fragment::getTreeNodeId)
-                .orderByDesc(Fragment::getCreateTime);
+        // 2. 再过滤出其中处于 Inbox 状态（treeNodeId IS NULL）的摘录
+        LambdaQueryWrapper<Excerpt> excerptWrapper = new LambdaQueryWrapper<>();
+        excerptWrapper.in(Excerpt::getId, excerptIds)
+                .isNull(Excerpt::getTreeNodeId)
+                .orderByDesc(Excerpt::getCreateTime);
 
-        return fragmentMapper.selectPage(new Page<>(current, size), fragmentWrapper);
+        return excerptMapper.selectPage(new Page<>(current, size), excerptWrapper);
     }
 }

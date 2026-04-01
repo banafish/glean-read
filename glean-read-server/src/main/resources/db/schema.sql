@@ -25,8 +25,8 @@ CREATE TABLE IF NOT EXISTS tags (
 
 CREATE INDEX IF NOT EXISTS idx_tags_heat_weight ON tags(heat_weight DESC);
 
--- 3. 知识碎片表
-CREATE TABLE IF NOT EXISTS fragment (
+-- 3. 知识摘录表
+CREATE TABLE IF NOT EXISTS excerpts (
     id            BIGSERIAL       PRIMARY KEY,
     content       TEXT            NOT NULL,
     url           VARCHAR(2048),
@@ -36,15 +36,15 @@ CREATE TABLE IF NOT EXISTS fragment (
     update_time   TIMESTAMP       NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_fragment_tree_node_id ON fragment(tree_node_id);
-CREATE INDEX IF NOT EXISTS idx_fragment_create_time  ON fragment(create_time DESC);
+CREATE INDEX IF NOT EXISTS idx_excerpt_tree_node_id ON excerpts(tree_node_id);
+CREATE INDEX IF NOT EXISTS idx_excerpt_create_time  ON excerpts(create_time DESC);
 
--- 4. 碎片-标签关联中间表
-CREATE TABLE IF NOT EXISTS fragment_tag (
-    fragment_id  BIGINT  NOT NULL,
-    tag_id       BIGINT  NOT NULL,
-    PRIMARY KEY (fragment_id, tag_id)
+-- 4. 摘录-标签关联中间表
+CREATE TABLE IF NOT EXISTS excerpt_tags (
+    excerpt_id  BIGINT  NOT NULL,
+    tag_id      BIGINT  NOT NULL,
+    PRIMARY KEY (excerpt_id, tag_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_fragment_tag_tag_id       ON fragment_tag(tag_id);
-CREATE INDEX IF NOT EXISTS idx_fragment_tag_fragment_id  ON fragment_tag(fragment_id);
+CREATE INDEX IF NOT EXISTS idx_excerpt_tag_tag_id      ON excerpt_tags(tag_id);
+CREATE INDEX IF NOT EXISTS idx_excerpt_tag_excerpt_id  ON excerpt_tags(excerpt_id);
