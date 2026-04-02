@@ -1,6 +1,6 @@
 package com.gleanread.server.application.service;
 
-import com.gleanread.server.application.dto.SynthesisRequest;
+import com.gleanread.server.application.dto.MountRequest;
 import com.gleanread.server.domain.model.excerpt.Excerpt;
 import com.gleanread.server.domain.model.excerpt.ExcerptRepository;
 import com.gleanread.server.domain.model.tree.KnowledgeTreeNode;
@@ -23,39 +23,63 @@ public class SynthesisAppService {
     private final LlmPort llm;
 
     /**
-     * 合成和挂载 - 应用层编排逻辑
+     * 独立出纯粹的 AI 大纲生成逻辑，不具有产生和持久化副作用
+     */
+    public String generateOutlineForExcerpts(List<Long> excerptIds, String topicName) {
+        List<Excerpt> excerpts = excerptRepository.listByIds(excerptIds);
+        if (excerpts.isEmpty()) {
+            throw new IllegalArgumentException("未找到待处理的摘录集，无法生成大纲");
+        }
+        
+        String prompt = buildAiSynthesisPrompt(excerpts, topicName != null && !topicName.isEmpty() ? topicName : "通用系统综合");
+        log.info("向大模型请求的批处理 Outline 总结 Prompt内容: \n{}", prompt);
+        
+        return llm.complete(prompt);
+    }
+
+    /**
+     * 纯净挂载：不再隐式调用 AI，直接将摘录挂载到指定的 targetNodeId（如果提供）。
+     * 若指定 outlineMarkdown 则更新或创建新节点。
      */
     @Transactional(rollbackFor = Exception.class)
-    public KnowledgeTreeNode synthesizeAndMount(SynthesisRequest request) {
-        // 1. 获取聚合根
-        List<Excerpt> excerpts = excerptRepository.listByIds(request.getExcerptIds());
-
-        if (excerpts.isEmpty()) {
-            throw new IllegalArgumentException("未找到待处理的摘录集，合成逻辑中止");
+    public void mountExcerpts(MountRequest request) {
+        if (request.getExcerptIds() == null || request.getExcerptIds().isEmpty()) {
+            return;
         }
 
-        // 2. 领域服务/能力：组装发送给 LLM 的Prompt (也可以抽取到专门的Domain Service类中)
-        String prompt = buildAiSynthesisPrompt(excerpts, request.getTopicName());
-        log.info("向大语言模型请求的合成 Prompt内容: \n{}", prompt);
+        List<Excerpt> excerpts = excerptRepository.listByIds(request.getExcerptIds());
+        if (excerpts.isEmpty()) {
+            return;
+        }
 
-        // 3. 依赖倒置：通过领域接口 LlmPort 调用基础设施层适配的大语言模型能力
-        String outlineMarkdown = llm.complete(prompt);
+        Long finalTargetId = request.getTargetNodeId();
 
-        // 4. 利用 KnowledgeTreeNode 的充血方法创建节点实体并持久化
-        KnowledgeTreeNode topicNode = KnowledgeTreeNode.create(
-                request.getParentNodeId(), 
-                request.getTopicName(), 
-                outlineMarkdown
-        );
-        treeNodeRepository.save(topicNode);
-
-        // 5. 改变摘录生命周期流转状态: 调用摘录的归属方法完成挂载
+        // 1. 如果提供了 targetNodeId，则看是否需要附加上 outlineMarkdown
+        if (finalTargetId != null) {
+            if (request.getOutlineMarkdown() != null && !request.getOutlineMarkdown().trim().isEmpty()) {
+                KnowledgeTreeNode node = treeNodeRepository.findById(finalTargetId);
+                if (node != null) {
+                    node.updateOutline(request.getOutlineMarkdown());
+                    treeNodeRepository.update(node);
+                }
+            }
+        } 
+        // 2. 否则，如果提供了 parentNodeId 以及 title，则视为新建树节点
+        else if (request.getTitle() != null && !request.getTitle().trim().isEmpty()) {
+            KnowledgeTreeNode newNode = KnowledgeTreeNode.create(
+                    request.getParentNodeId(), 
+                    request.getTitle(), 
+                    request.getOutlineMarkdown()
+            );
+            treeNodeRepository.save(newNode);
+            // 将刚创建新节点的id作为真正的目标挂载点
+            finalTargetId = newNode.getId();
+        }
+        
         for (Excerpt excerpt : excerpts) {
-            excerpt.mountToNode(topicNode.getId());
+            excerpt.mountToNode(finalTargetId);
             excerptRepository.update(excerpt);
         }
-
-        return topicNode;
     }
 
     private String buildAiSynthesisPrompt(List<Excerpt> excerpts, String topicName) {

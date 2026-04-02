@@ -1,6 +1,7 @@
 package com.gleanread.server.interfaces.rest;
 
-import com.gleanread.server.application.dto.SynthesisRequest;
+import com.gleanread.server.application.dto.OutlineBatchRequest;
+import com.gleanread.server.application.dto.MountRequest;
 import com.gleanread.server.domain.model.tree.KnowledgeTreeNode;
 import com.gleanread.server.application.service.SynthesisAppService;
 import com.gleanread.server.application.service.KnowledgeQueryAppService;
@@ -19,12 +20,21 @@ public class KnowledgeController {
     private final KnowledgeQueryAppService knowledgeQueryAppService;
 
     /**
-     * 将指定零散碎片丢给云端大模型，融合成系统化大纲，并建立起“树节点”联系
+     * 实现任务 2：批量摘录生成 AI Outline
      */
-    @PostMapping("/synthesis")
-    public ResponseEntity<KnowledgeTreeNode> synthesizeOutline(@RequestBody SynthesisRequest request) {
-        KnowledgeTreeNode resultTopicNode = synthesisService.synthesizeAndMount(request);
-        return ResponseEntity.ok(resultTopicNode);
+    @PostMapping("/ai/outline/batch")
+    public ResponseEntity<String> generateOutlineForExcerpts(@RequestBody OutlineBatchRequest request) {
+        String outline = synthesisService.generateOutlineForExcerpts(request.getExcerptIds(), request.getTopicName());
+        return ResponseEntity.ok(outline);
+    }
+
+    /**
+     * 实现任务 3：纯净版挂载接口，剥离了AI调用，支持挂接到已有对象
+     */
+    @PostMapping("/mount")
+    public ResponseEntity<String> mountExcerpts(@RequestBody MountRequest request) {
+        synthesisService.mountExcerpts(request);
+        return ResponseEntity.ok("Successfully mounted excerpts.");
     }
 
     /**

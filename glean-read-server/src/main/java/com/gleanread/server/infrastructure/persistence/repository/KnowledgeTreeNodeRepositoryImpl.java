@@ -17,4 +17,14 @@ public class KnowledgeTreeNodeRepositoryImpl implements KnowledgeTreeNodeReposit
         mapper.insert(entity);
         return entity;
     }
+
+    @Override
+    public KnowledgeTreeNode findById(Long id) {
+        return mapper.selectById(id);
+    }
+
+    @Override
+    public void update(KnowledgeTreeNode entity) {
+        mapper.updateById(entity);
+    }
 }

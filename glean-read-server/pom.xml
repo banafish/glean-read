@@ -69,6 +69,12 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <verbose>true</verbose>
+          <fork>true</fork>
+          <!-- 指定jdk21路径，避免编译失败 -->
+          <executable>C:\Users\bananice\.antigravity\extensions\redhat.java-1.53.0-win32-x64\jre\21.0.10-win32-x86_64\bin\javac</executable>
+        </configuration>
       </plugin>
     </plugins>
   </build>

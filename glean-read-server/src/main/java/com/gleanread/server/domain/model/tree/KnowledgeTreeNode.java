@@ -45,4 +45,9 @@ public class KnowledgeTreeNode {
         node.updateTime = LocalDateTime.now();
         return node;
     }
+
+    public void updateOutline(String outlineMarkdown) {
+        this.outlineMarkdown = outlineMarkdown;
+        this.updateTime = LocalDateTime.now();
+    }
 }
