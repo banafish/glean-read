@@ -2,9 +2,11 @@ package com.gleanread.server.interfaces.rest;
 
 import com.gleanread.server.application.dto.OutlineBatchRequest;
 import com.gleanread.server.application.dto.MountRequest;
+import com.gleanread.server.application.dto.CreateNodeRequest;
 import com.gleanread.server.domain.model.tree.KnowledgeTreeNode;
 import com.gleanread.server.application.service.SynthesisAppService;
 import com.gleanread.server.application.service.KnowledgeQueryAppService;
+import com.gleanread.server.application.service.KnowledgeTreeAppService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,6 +20,7 @@ public class KnowledgeController {
 
     private final SynthesisAppService synthesisService;
     private final KnowledgeQueryAppService knowledgeQueryAppService;
+    private final KnowledgeTreeAppService knowledgeTreeAppService;
 
     /**
      * 实现任务 2：批量摘录生成 AI Outline
@@ -43,5 +46,13 @@ public class KnowledgeController {
     @GetMapping("/tree")
     public ResponseEntity<List<KnowledgeTreeNode>> getFullKnowledgeTree() {
         return ResponseEntity.ok(knowledgeQueryAppService.getFullKnowledgeTree());
+    }
+
+    /**
+     * 独立创建知识树节点
+     */
+    @PostMapping("/tree/nodes")
+    public ResponseEntity<KnowledgeTreeNode> createNode(@RequestBody CreateNodeRequest request) {
+        return ResponseEntity.ok(knowledgeTreeAppService.createNode(request));
     }
 }
