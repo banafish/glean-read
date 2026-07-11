@@ -19,32 +19,24 @@ class WeChatCaptureSignalStoreTest {
 
     @Test
     fun `initial signals are empty`() {
-        val signals = signalStore.read()
-
-        assertEquals(0L, signals.lastCopyTextAt)
-        assertEquals(0L, signals.lastCopyLinkAt)
-        assertEquals(0L, signals.latestCopyAt)
+        assertEquals(0L, signalStore.read().lastCopyAt)
     }
 
     @Test
-    fun `copy text and copy link signals are stored independently`() {
-        signalStore.markCopyTextClicked(at = 1_000L)
-        signalStore.markCopyLinkClicked(at = 2_000L)
+    fun `copy signal timestamp is stored and overwritten`() {
+        signalStore.markCopyObserved(at = 1_000L)
+        assertEquals(1_000L, signalStore.read().lastCopyAt)
 
-        val signals = signalStore.read()
-
-        assertEquals(1_000L, signals.lastCopyTextAt)
-        assertEquals(2_000L, signals.lastCopyLinkAt)
-        assertEquals(2_000L, signals.latestCopyAt)
+        signalStore.markCopyObserved(at = 2_000L)
+        assertEquals(2_000L, signalStore.read().lastCopyAt)
     }
 
     @Test
     fun `clear resets all signals`() {
-        signalStore.markCopyTextClicked(at = 1_000L)
-        signalStore.markCopyLinkClicked(at = 2_000L)
+        signalStore.markCopyObserved(at = 1_000L)
 
         signalStore.clear()
 
-        assertEquals(0L, signalStore.read().latestCopyAt)
+        assertEquals(0L, signalStore.read().lastCopyAt)
     }
 }

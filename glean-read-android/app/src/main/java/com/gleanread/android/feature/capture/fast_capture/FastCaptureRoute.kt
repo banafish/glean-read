@@ -16,6 +16,7 @@ import com.gleanread.android.platform.page_context.PageContextAccessibilityState
 fun FastCaptureRoute(
     captureSeed: CaptureSeed,
     onDismiss: () -> Unit,
+    onSheetWindowFocused: () -> Unit = {},
     fastCaptureViewModel: FastCaptureViewModel = viewModel(
         factory = LocalContext.current.appContainer.fastCaptureViewModelFactory,
     ),
@@ -31,6 +32,7 @@ fun FastCaptureRoute(
         uiState = uiState,
         isAccessibilityEnabled = isAccessibilityEnabled,
         onDismiss = onDismiss,
+        onSheetWindowFocused = onSheetWindowFocused,
         onOpenAccessibilitySettings = {
             context.startActivity(
                 Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(

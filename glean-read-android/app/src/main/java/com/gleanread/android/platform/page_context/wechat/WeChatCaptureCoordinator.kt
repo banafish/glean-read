@@ -24,18 +24,26 @@ class WeChatCaptureCoordinator(
     private val bubble: WeChatCaptureBubble = bubbleFactory { onBubbleTapped() }
     private val detector = WeChatArticlePageDetector(clock)
     private var isBubbleEnabled = true
-    private var lastHandledClickAt = 0L
+    private var lastHandledCopyAt = 0L
 
-    /** 服务转发的微信 TYPE_VIEW_CLICKED 事件入口 */
-    fun onClickEvent(
+    // 最近一次微信窗口切换的窗口类名；公众号文章页类名含 WebView（真机证据：TmplWebViewMMUI）
+    private var lastWindowClassName = ""
+
+    /** 服务转发的微信「复制成功」toast 事件入口 */
+    fun onCopyToastEvent(
         event: AccessibilityEvent,
         rootProvider: () -> AccessibilityNodeInfo?,
     ) {
-        handleCopyClick(
-            candidateTexts = collectCandidateTexts(event),
-            windowId = event.windowId,
-            articleScan = { detector.isArticlePage(event.windowId, rootProvider) },
-        )
+        val toastTexts = buildList {
+            event.text.orEmpty().forEach { text ->
+                text?.toString()?.let(::add)
+            }
+        }
+        handleCopyToast(toastTexts) {
+            // toast 事件不属于任何窗口（windowId=-1），改用当前活动窗口根节点做文章页判定
+            val root = rootProvider()
+            root != null && detector.isArticlePage(root.windowId) { root }
+        }
     }
 
     /** 服务转发的微信窗口事件入口：维护文章页缓存 + 提取标题写快照 */
@@ -46,8 +54,7 @@ class WeChatCaptureCoordinator(
     ) {
         val isWindowStateChange = event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
         if (isWindowStateChange) {
-            // 窗口切换时失效文章页判定缓存，避免跨页面误用
-            detector.invalidate()
+            noteWindowStateChanged(event.className?.toString().orEmpty())
         }
 
         val eventTexts = buildList {
@@ -75,28 +82,40 @@ class WeChatCaptureCoordinator(
         bubble.destroy()
     }
 
-    /** 点击处理主干；事件字段提取与其解耦，便于纯逻辑单测 */
-    internal fun handleCopyClick(
-        candidateTexts: List<String>,
-        windowId: Int,
+    /**
+     * 窗口切换：失效文章页判定缓存，并记录窗口类名供 toast 触发时兜底判定。
+     * 仅 Activity 级窗口（微信 Activity 均以 UI 结尾，如 LauncherUI/TmplWebViewMMUI）才覆盖记录：
+     * 真机证据表明文章页内弹出分享菜单会派发 dialog 窗口事件（如 ui.widget.dialog.a4），
+     * 而菜单关闭不派发任何事件，若被其覆盖，兜底判定将永久失效直至下次 Activity 切换。
+     */
+    internal fun noteWindowStateChanged(className: String) {
+        detector.invalidate()
+        if (isActivityWindowClassName(className)) {
+            lastWindowClassName = className
+        }
+    }
+
+    /** 复制成功 toast 处理主干；事件字段提取与其解耦，便于纯逻辑单测 */
+    internal fun handleCopyToast(
+        toastTexts: List<String>,
         articleScan: () -> Boolean,
     ) {
         val now = clock()
-        // 微信一次点击可能派发多条事件，只处理第一条
-        if (now - lastHandledClickAt < WeChatCaptureContract.ClickDebounceMillis) return
-
-        val kind = WeChatClickClassifier.classify(candidateTexts)
-        if (kind == WeChatCopyClickKind.NONE) return
-
-        // 仅公众号文章页触发（聊天等原生页面复制不打扰），扫描结果按窗口缓存
-        if (!detector.isArticlePageCached(windowId, articleScan)) return
-
-        lastHandledClickAt = now
-        when (kind) {
-            WeChatCopyClickKind.COPY_TEXT -> signalStore.markCopyTextClicked(now)
-            WeChatCopyClickKind.COPY_LINK -> signalStore.markCopyLinkClicked(now)
-            WeChatCopyClickKind.NONE -> Unit
+        // 微信一次复制可能派发多条 toast，只处理第一条
+        if (now - lastHandledCopyAt < WeChatCaptureContract.CopyToastDebounceMillis) {
+            return
         }
+
+        if (!WeChatCopyToastClassifier.isCopySuccess(toastTexts)) return
+
+        // 仅公众号文章页触发（聊天等原生页面复制不打扰）：
+        // 主判定为节点扫描找网页容器，兜底为活动窗口类名含 WebView（部分内核不暴露网页节点）
+        val isArticle = articleScan() ||
+            WeChatArticlePageDetector.isWebContainerClassName(lastWindowClassName)
+        if (!isArticle) return
+
+        lastHandledCopyAt = now
+        signalStore.markCopyObserved(now)
 
         // 开关关闭时仍记录信号（供弹窗剪贴板校验），但不打扰用户
         if (isBubbleEnabled) {
@@ -158,18 +177,6 @@ class WeChatCaptureCoordinator(
     private fun onBubbleTapped() {
         bubble.hide()
         onLaunchCapture()
-    }
-
-    private fun collectCandidateTexts(event: AccessibilityEvent): List<String> {
-        return buildList {
-            event.text.orEmpty().forEach { text ->
-                text?.toString()?.let(::add)
-            }
-            event.source?.let { source ->
-                source.text?.toString()?.let(::add)
-                source.contentDescription?.toString()?.let(::add)
-            }
-        }
     }
 
     /** BFS 收集标题候选节点，并沿途标记节点是否位于网页容器（WebView/XWeb）子树内 */
@@ -240,5 +247,10 @@ class WeChatCaptureCoordinator(
         const val MAX_SCAN_DEPTH = 24
         const val MAX_VISITED_NODES = 400
         const val MAX_COLLECTED_NODES = 180
+
+        /** 微信 Activity 命名惯例：类名以 UI 结尾；dialog/popup 等浮层为混淆短名，不满足该惯例 */
+        fun isActivityWindowClassName(className: String): Boolean {
+            return className.endsWith("UI")
+        }
     }
 }

@@ -45,52 +45,100 @@ class WeChatCaptureCoordinatorTest {
     }
 
     @Test
-    fun `copy click on article page marks signal and shows bubble`() {
+    fun `copy toast on article page marks signal and shows bubble`() {
         val coordinator = createCoordinator()
 
-        coordinator.handleCopyClick(
-            candidateTexts = listOf("复制"),
-            windowId = 1,
+        coordinator.handleCopyToast(
+            toastTexts = listOf("内容已复制", "微信"),
             articleScan = { true },
         )
 
-        assertEquals(now, signalStore.read().lastCopyTextAt)
+        assertEquals(now, signalStore.read().lastCopyAt)
         assertEquals(1, bubble.showCount)
     }
 
     @Test
-    fun `copy link click marks link signal and shows bubble`() {
+    fun `article window class fallback triggers when node scan fails`() {
         val coordinator = createCoordinator()
 
-        coordinator.handleCopyClick(
-            candidateTexts = listOf("复制链接"),
-            windowId = 1,
-            articleScan = { true },
+        // 真机证据：公众号文章页窗口类名 TmplWebViewMMUI（含 WebView），可兜底节点扫描失败
+        coordinator.noteWindowStateChanged(
+            "com.tencent.mm.plugin.brandservice.ui.timeline.preload.ui.TmplWebViewMMUI",
+        )
+        coordinator.handleCopyToast(
+            toastTexts = listOf("内容已复制"),
+            articleScan = { false },
         )
 
-        assertEquals(now, signalStore.read().lastCopyLinkAt)
-        assertEquals(0L, signalStore.read().lastCopyTextAt)
         assertEquals(1, bubble.showCount)
     }
 
     @Test
-    fun `clicks inside debounce window are ignored`() {
+    fun `dialog window does not pollute article window fallback`() {
         val coordinator = createCoordinator()
 
-        coordinator.handleCopyClick(listOf("复制"), windowId = 1, articleScan = { true })
-        now += WeChatCaptureContract.ClickDebounceMillis - 1L
-        coordinator.handleCopyClick(listOf("复制"), windowId = 1, articleScan = { true })
+        // 真机复现序列：文章页 → 点「⋯」弹出分享菜单（dialog 窗口事件）→ 关闭菜单（无事件）→ 复制正文
+        coordinator.noteWindowStateChanged(
+            "com.tencent.mm.plugin.brandservice.ui.timeline.preload.ui.TmplWebViewMMUI",
+        )
+        coordinator.noteWindowStateChanged("com.tencent.mm.ui.widget.dialog.a4")
+        coordinator.handleCopyToast(
+            toastTexts = listOf("内容已复制"),
+            articleScan = { false },
+        )
 
         assertEquals(1, bubble.showCount)
     }
 
     @Test
-    fun `clicks after debounce window are handled again`() {
+    fun `leaving article page via activity switch clears fallback`() {
         val coordinator = createCoordinator()
 
-        coordinator.handleCopyClick(listOf("复制"), windowId = 1, articleScan = { true })
-        now += WeChatCaptureContract.ClickDebounceMillis + 1L
-        coordinator.handleCopyClick(listOf("复制"), windowId = 1, articleScan = { true })
+        // 文章页 → 返回微信主界面（Activity 级切换）→ 聊天里复制不应弹泡
+        coordinator.noteWindowStateChanged(
+            "com.tencent.mm.plugin.brandservice.ui.timeline.preload.ui.TmplWebViewMMUI",
+        )
+        coordinator.noteWindowStateChanged("com.tencent.mm.ui.LauncherUI")
+        coordinator.handleCopyToast(
+            toastTexts = listOf("内容已复制"),
+            articleScan = { false },
+        )
+
+        assertEquals(0, bubble.showCount)
+    }
+
+    @Test
+    fun `native window class does not act as article fallback`() {
+        val coordinator = createCoordinator()
+
+        coordinator.noteWindowStateChanged("com.tencent.mm.ui.LauncherUI")
+        coordinator.handleCopyToast(
+            toastTexts = listOf("内容已复制"),
+            articleScan = { false },
+        )
+
+        assertEquals(0, bubble.showCount)
+        assertEquals(0L, signalStore.read().lastCopyAt)
+    }
+
+    @Test
+    fun `toasts inside debounce window are ignored`() {
+        val coordinator = createCoordinator()
+
+        coordinator.handleCopyToast(listOf("内容已复制"), articleScan = { true })
+        now += WeChatCaptureContract.CopyToastDebounceMillis - 1L
+        coordinator.handleCopyToast(listOf("内容已复制"), articleScan = { true })
+
+        assertEquals(1, bubble.showCount)
+    }
+
+    @Test
+    fun `toasts after debounce window are handled again`() {
+        val coordinator = createCoordinator()
+
+        coordinator.handleCopyToast(listOf("内容已复制"), articleScan = { true })
+        now += WeChatCaptureContract.CopyToastDebounceMillis + 1L
+        coordinator.handleCopyToast(listOf("内容已复制"), articleScan = { true })
 
         assertEquals(2, bubble.showCount)
     }
@@ -99,20 +147,20 @@ class WeChatCaptureCoordinatorTest {
     fun `non article page never shows bubble`() {
         val coordinator = createCoordinator()
 
-        coordinator.handleCopyClick(listOf("复制"), windowId = 1, articleScan = { false })
+        coordinator.handleCopyToast(listOf("内容已复制"), articleScan = { false })
 
         assertEquals(0, bubble.showCount)
-        assertEquals(0L, signalStore.read().latestCopyAt)
+        assertEquals(0L, signalStore.read().lastCopyAt)
     }
 
     @Test
-    fun `unrelated labels do nothing`() {
+    fun `unrelated toasts do nothing`() {
         val coordinator = createCoordinator()
 
-        coordinator.handleCopyClick(listOf("搜一搜", "全选"), windowId = 1, articleScan = { true })
+        coordinator.handleCopyToast(listOf("发送成功"), articleScan = { true })
 
         assertEquals(0, bubble.showCount)
-        assertEquals(0L, signalStore.read().latestCopyAt)
+        assertEquals(0L, signalStore.read().lastCopyAt)
     }
 
     @Test
@@ -120,14 +168,14 @@ class WeChatCaptureCoordinatorTest {
         val coordinator = createCoordinator()
 
         coordinator.onBubbleEnabledChanged(false)
-        coordinator.handleCopyClick(listOf("复制"), windowId = 1, articleScan = { true })
+        coordinator.handleCopyToast(listOf("内容已复制"), articleScan = { true })
 
         assertEquals(0, bubble.showCount)
         assertTrue(bubble.hideCount >= 1)
 
         coordinator.onBubbleEnabledChanged(true)
-        now += WeChatCaptureContract.ClickDebounceMillis + 1L
-        coordinator.handleCopyClick(listOf("复制"), windowId = 1, articleScan = { true })
+        now += WeChatCaptureContract.CopyToastDebounceMillis + 1L
+        coordinator.handleCopyToast(listOf("内容已复制"), articleScan = { true })
 
         assertEquals(1, bubble.showCount)
     }
@@ -137,9 +185,9 @@ class WeChatCaptureCoordinatorTest {
         val coordinator = createCoordinator()
 
         coordinator.onBubbleEnabledChanged(false)
-        coordinator.handleCopyClick(listOf("复制"), windowId = 1, articleScan = { true })
+        coordinator.handleCopyToast(listOf("内容已复制"), articleScan = { true })
 
-        assertEquals(now, signalStore.read().lastCopyTextAt)
+        assertEquals(now, signalStore.read().lastCopyAt)
     }
 
     @Test

@@ -25,7 +25,7 @@ class WeChatClipboardResolverTest {
                 text = "复制出来的一段正文",
                 timestampMillis = 10_000L,
             ),
-            signals = WeChatCaptureSignals(lastCopyTextAt = 10_000L, lastCopyLinkAt = 0L),
+            signals = WeChatCaptureSignals(lastCopyAt = 10_000L),
             now = 11_000L,
         )
 
@@ -41,7 +41,7 @@ class WeChatClipboardResolverTest {
                 text = "https://mp.weixin.qq.com/s/abcDEF123",
                 timestampMillis = 10_000L,
             ),
-            signals = WeChatCaptureSignals(lastCopyTextAt = 0L, lastCopyLinkAt = 10_000L),
+            signals = WeChatCaptureSignals(lastCopyAt = 10_000L),
             now = 11_000L,
         )
 
@@ -59,8 +59,7 @@ class WeChatClipboardResolverTest {
                 timestampMillis = 10_000L,
             ),
             signals = WeChatCaptureSignals(
-                lastCopyTextAt = 10_000L + WeChatCaptureContract.ClipTimestampToleranceMillis + 1L,
-                lastCopyLinkAt = 0L,
+                lastCopyAt = 10_000L + WeChatCaptureContract.ClipTimestampToleranceMillis + 1L,
             ),
             now = 40_000L,
         )
@@ -73,13 +72,13 @@ class WeChatClipboardResolverTest {
         val withinWindow = WeChatClipboardResolver.applyToSeed(
             seed = baseSeed,
             clip = WeChatClipboardResolver.ClipInput(text = "正文片段", timestampMillis = 0L),
-            signals = WeChatCaptureSignals(lastCopyTextAt = 10_000L, lastCopyLinkAt = 0L),
+            signals = WeChatCaptureSignals(lastCopyAt = 10_000L),
             now = 10_000L + WeChatCaptureContract.ClipFallbackWindowMillis,
         )
         val outsideWindow = WeChatClipboardResolver.applyToSeed(
             seed = baseSeed,
             clip = WeChatClipboardResolver.ClipInput(text = "正文片段", timestampMillis = 0L),
-            signals = WeChatCaptureSignals(lastCopyTextAt = 10_000L, lastCopyLinkAt = 0L),
+            signals = WeChatCaptureSignals(lastCopyAt = 10_000L),
             now = 10_000L + WeChatCaptureContract.ClipFallbackWindowMillis + 1L,
         )
 
@@ -92,7 +91,7 @@ class WeChatClipboardResolverTest {
         val updated = WeChatClipboardResolver.applyToSeed(
             seed = baseSeed,
             clip = WeChatClipboardResolver.ClipInput(text = "正文", timestampMillis = 10_000L),
-            signals = WeChatCaptureSignals(lastCopyTextAt = 0L, lastCopyLinkAt = 0L),
+            signals = WeChatCaptureSignals(lastCopyAt = 0L),
             now = 11_000L,
         )
 
@@ -105,7 +104,7 @@ class WeChatClipboardResolverTest {
             WeChatClipboardResolver.applyToSeed(
                 seed = baseSeed,
                 clip = null,
-                signals = WeChatCaptureSignals(lastCopyTextAt = 10_000L, lastCopyLinkAt = 0L),
+                signals = WeChatCaptureSignals(lastCopyAt = 10_000L),
                 now = 11_000L,
             ),
         )
@@ -113,7 +112,7 @@ class WeChatClipboardResolverTest {
             WeChatClipboardResolver.applyToSeed(
                 seed = baseSeed,
                 clip = WeChatClipboardResolver.ClipInput(text = "   ", timestampMillis = 10_000L),
-                signals = WeChatCaptureSignals(lastCopyTextAt = 10_000L, lastCopyLinkAt = 0L),
+                signals = WeChatCaptureSignals(lastCopyAt = 10_000L),
                 now = 11_000L,
             ),
         )
@@ -126,7 +125,7 @@ class WeChatClipboardResolverTest {
         val updated = WeChatClipboardResolver.applyToSeed(
             seed = seedWithContent,
             clip = WeChatClipboardResolver.ClipInput(text = "已有正文", timestampMillis = 10_000L),
-            signals = WeChatCaptureSignals(lastCopyTextAt = 10_000L, lastCopyLinkAt = 0L),
+            signals = WeChatCaptureSignals(lastCopyAt = 10_000L),
             now = 11_000L,
         )
 
@@ -141,7 +140,7 @@ class WeChatClipboardResolverTest {
                 text = "好文分享 https://mp.weixin.qq.com/s/xyz789 值得一读",
                 timestampMillis = 10_000L,
             ),
-            signals = WeChatCaptureSignals(lastCopyTextAt = 0L, lastCopyLinkAt = 10_000L),
+            signals = WeChatCaptureSignals(lastCopyAt = 10_000L),
             now = 11_000L,
         )
 

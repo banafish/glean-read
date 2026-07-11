@@ -39,33 +39,49 @@ class PageContextAccessibilityPolicyTest {
     }
 
     @Test
-    fun `view clicked events never enter snapshot pipeline`() {
+    fun `trigger events never enter snapshot pipeline`() {
         assertFalse(
             PageContextAccessibilityPolicy.shouldProcessEvent(
                 eventType = AccessibilityEvent.TYPE_VIEW_CLICKED,
                 contentChangeTypes = 0,
             ),
         )
+        assertFalse(
+            PageContextAccessibilityPolicy.shouldProcessEvent(
+                eventType = AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED,
+                contentChangeTypes = 0,
+            ),
+        )
     }
 
     @Test
-    fun `wechat copy click routing only matches wechat click events`() {
+    fun `wechat copy toast routing only matches wechat toast events`() {
         assertTrue(
-            PageContextAccessibilityPolicy.isWeChatCopyClickEvent(
-                eventType = AccessibilityEvent.TYPE_VIEW_CLICKED,
+            PageContextAccessibilityPolicy.isWeChatCopyToastEvent(
+                eventType = AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED,
                 packageName = PageContextSupport.WeChatPackage,
+                className = "android.widget.Toast",
             ),
         )
         assertFalse(
-            PageContextAccessibilityPolicy.isWeChatCopyClickEvent(
-                eventType = AccessibilityEvent.TYPE_VIEW_CLICKED,
+            PageContextAccessibilityPolicy.isWeChatCopyToastEvent(
+                eventType = AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED,
+                packageName = PageContextSupport.WeChatPackage,
+                className = "android.app.Notification",
+            ),
+        )
+        assertFalse(
+            PageContextAccessibilityPolicy.isWeChatCopyToastEvent(
+                eventType = AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED,
                 packageName = PageContextSupport.ChromePackage,
+                className = "android.widget.Toast",
             ),
         )
         assertFalse(
-            PageContextAccessibilityPolicy.isWeChatCopyClickEvent(
+            PageContextAccessibilityPolicy.isWeChatCopyToastEvent(
                 eventType = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
                 packageName = PageContextSupport.WeChatPackage,
+                className = "android.widget.Toast",
             ),
         )
     }

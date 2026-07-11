@@ -55,10 +55,12 @@ class PageContextAccessibilityService : AccessibilityService() {
         val safeEvent = event ?: return
         val packageName = safeEvent.packageName?.toString().orEmpty()
 
-        // 点击事件只服务于微信摘录触发，永不进入快照管线（浏览器路径零影响）
-        if (safeEvent.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED) {
-            if (PageContextAccessibilityPolicy.isWeChatCopyClickEvent(safeEvent.eventType, packageName)) {
-                wechatCoordinator?.onClickEvent(safeEvent) { rootInActiveWindow }
+        // 微信「复制成功」toast 是摘录触发信号（点击事件不带文本，无法据此识别复制）。
+        // toast 事件 windowId=-1，交协调器用当前活动窗口做文章页判定。
+        if (safeEvent.eventType == AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED) {
+            val className = safeEvent.className?.toString().orEmpty()
+            if (PageContextAccessibilityPolicy.isWeChatCopyToastEvent(safeEvent.eventType, packageName, className)) {
+                wechatCoordinator?.onCopyToastEvent(safeEvent) { rootInActiveWindow }
             }
             return
         }
@@ -125,6 +127,7 @@ class PageContextAccessibilityService : AccessibilityService() {
             setPackage(packageName)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
+        // 个别 ROM 禁止后台拉起界面，失败时静默放弃（分享 / 文本处理入口不受影响）
         runCatching { startActivity(intent) }
     }
 

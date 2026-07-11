@@ -49,7 +49,7 @@ object WeChatClipboardResolver {
         signals: WeChatCaptureSignals,
         now: Long,
     ): Boolean {
-        val latestSignal = signals.latestCopyAt
+        val latestSignal = signals.lastCopyAt
         // 没有复制信号说明剪贴板内容并非来自微信内的复制动作
         if (latestSignal <= 0L) return false
 

@@ -28,15 +28,17 @@ internal object PageContextAccessibilityPolicy {
     }
 
     /**
-     * 点击事件只路由给微信摘录处理器，永不进入浏览器快照管线。
-     * 服务入口据此对 TYPE_VIEW_CLICKED 做 O(1) 分流。
+     * 微信「复制成功」toast 才路由给摘录处理器（点击事件不带文本，无法识别复制动作）。
+     * 服务入口据此对 TYPE_NOTIFICATION_STATE_CHANGED 做 O(1) 分流。
      */
-    fun isWeChatCopyClickEvent(
+    fun isWeChatCopyToastEvent(
         eventType: Int,
         packageName: String,
+        className: String,
     ): Boolean {
-        return eventType == AccessibilityEvent.TYPE_VIEW_CLICKED &&
-            packageName == PageContextSupport.WeChatPackage
+        return eventType == AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED &&
+            packageName == PageContextSupport.WeChatPackage &&
+            className.contains("Toast", ignoreCase = true)
     }
 
     fun shouldSkipStoreWrite(

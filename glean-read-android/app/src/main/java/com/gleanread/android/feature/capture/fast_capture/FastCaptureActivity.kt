@@ -56,6 +56,7 @@ class FastCaptureActivity : ComponentActivity() {
                     FastCaptureRoute(
                         captureSeed = captureSeed,
                         onDismiss = ::finish,
+                        onSheetWindowFocused = ::applyClipboardSeedIfNeeded,
                     )
                 }
             }
@@ -64,7 +65,19 @@ class FastCaptureActivity : ComponentActivity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (!hasFocus || hasAppliedClipboardSeed) return
+        if (!hasFocus) return
+        applyClipboardSeedIfNeeded()
+    }
+
+    /**
+     * 首个「本应用窗口获焦」信号到达时读剪贴板补齐 seed，幂等。
+     * 两路信号双保险：Activity 主窗口焦点回调 + 弹窗 sheet 自身窗口焦点
+     * （ModalBottomSheet 持有独立 dialog 窗口，部分 ROM 上 Activity 主窗口
+     * 自始至终不获焦，onWindowFocusChanged 永远不会回调）。
+     * Android 10+ 剪贴板权限按 uid + 焦点窗口判定，同应用 dialog 窗口获焦即可读。
+     */
+    private fun applyClipboardSeedIfNeeded() {
+        if (hasAppliedClipboardSeed) return
         // 仅微信气泡入口读剪贴板；分享 / 文本处理入口保持原有行为
         if (intent?.action != WeChatCaptureContract.ActionWeChatCapture) return
         hasAppliedClipboardSeed = true

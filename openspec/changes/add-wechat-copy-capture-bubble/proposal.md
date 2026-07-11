@@ -6,13 +6,13 @@
 2. **URL 抓不到**：公众号文章链接从不渲染在界面上，无障碍节点树遍历永远拿不到精确的 `mp.weixin.qq.com/s/xxx`，现有 `isHighConfidenceWeChatUrlNode` 的地址栏节点假设不成立。
 3. **标题脆弱**：标题在 XWeb WebView 网页内容里，现有 `boundsTop 0..520px` 与 viewId 启发式在微信里基本失效。
 
-因此需要重写微信路径为「复制即摘」模式：以微信自带「复制/复制链接」按钮点击为触发信号，用无障碍悬浮气泡承接，剪贴板承载正文与链接。
+因此需要重写微信路径为「复制即摘」模式：以微信「复制成功」toast 为触发信号（真机验证：自绘菜单按钮的点击事件不携带任何文本，无法按钮级识别；复制成功后必弹「内容已复制」toast），用无障碍悬浮气泡承接，剪贴板承载正文与链接。
 
 ## 变更内容
 
-- 无障碍服务新增 `TYPE_VIEW_CLICKED` 事件监听（仅路由给微信处理器），识别公众号文章页内「复制」「复制链接」按钮点击。
-- 新增微信摘录悬浮气泡（`TYPE_ACCESSIBILITY_OVERLAY`）：复制类点击后在屏幕边缘弹出，8 秒自动消失，点击后以自定义 action 拉起 `FastCaptureActivity`。
-- 触发范围限定为公众号文章页（当前窗口含 WebView/XWeb 网页容器节点），聊天等原生页面复制不触发。
+- 无障碍服务新增 `TYPE_NOTIFICATION_STATE_CHANGED` 事件监听（仅路由微信 Toast 给微信处理器），识别公众号文章页内的「复制成功」toast。
+- 新增微信摘录悬浮气泡（`TYPE_ACCESSIBILITY_OVERLAY`）：复制成功后在屏幕边缘弹出，8 秒自动消失，点击后以自定义 action 拉起 `FastCaptureActivity`。
+- 触发范围限定为公众号文章页：主判定为当前活动窗口含 WebView/XWeb 网页容器节点，兜底判定为最近一次微信窗口切换的窗口类名含 WebView（真机证据 `TmplWebViewMMUI`）；聊天等原生页面复制不触发。
 - `FastCaptureActivity` 新增两阶段种子：onCreate 用缓存补标题/URL，首次获得窗口焦点后读取剪贴板（Android 10+ 限制），非链接文本填正文、`mp.weixin.qq.com` 链接填 URL 并回写页面上下文缓存。
 - 页面上下文缓存 TTL 按宿主区分：浏览器维持 60 秒，微信延长至 10 分钟（覆盖"复制链接后继续阅读几分钟再复制正文"的真实节奏）。
 - 微信标题提取重写为独立打分器（网页容器内节点优先、相对屏高位置替代绝对像素），并删除通用提取器中的旧微信分支。
@@ -29,7 +29,7 @@
 
 ## 影响
 
-- 无障碍服务配置 XML（新增 `typeViewClicked`）、事件路由与微信协调器。
+- 无障碍服务配置 XML（新增 `typeNotificationStateChanged`）、事件路由与微信协调器。
 - `PageContextStore` / `PageContextSupport`（按包名 TTL、URL 回写）、`CaptureSeedResolver`（微信 action 分支）。
 - `FastCaptureActivity`（两阶段 seed 与剪贴板读取）、`FastCaptureScreen`（currentUrl 重置键）。
 - 设置页（新开关）、`AppContainer`（新偏好仓库）、strings.xml。

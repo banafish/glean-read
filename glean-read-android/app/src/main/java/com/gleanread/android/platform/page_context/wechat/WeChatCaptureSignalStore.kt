@@ -2,17 +2,15 @@ package com.gleanread.android.platform.page_context.wechat
 
 import android.content.Context
 
-/** 微信复制类点击信号（不含剪贴板内容本身），供剪贴板新鲜度校验使用 */
+/** 微信复制成功信号（不含剪贴板内容本身），供剪贴板新鲜度校验使用 */
 data class WeChatCaptureSignals(
-    val lastCopyTextAt: Long,
-    val lastCopyLinkAt: Long,
-) {
-    val latestCopyAt: Long
-        get() = maxOf(lastCopyTextAt, lastCopyLinkAt)
-}
+    val lastCopyAt: Long,
+)
 
 /**
- * 记录无障碍服务观察到的微信「复制 / 复制链接」点击时间戳。
+ * 记录无障碍服务观察到的微信「复制成功」toast 时间戳。
+ * toast 无法区分「复制正文」与「复制链接」，也无需区分：
+ * 下游只用时间戳做新鲜度校验，正文/链接由剪贴板内容本身判别。
  * 服务进程写入，摘录弹窗进程内读取，用 SharedPreferences 直读保证跨组件可见。
  */
 class WeChatCaptureSignalStore(context: Context) {
@@ -21,18 +19,13 @@ class WeChatCaptureSignalStore(context: Context) {
         Context.MODE_PRIVATE,
     )
 
-    fun markCopyTextClicked(at: Long) {
-        preferences.edit().putLong(KEY_LAST_COPY_TEXT_AT, at).apply()
-    }
-
-    fun markCopyLinkClicked(at: Long) {
-        preferences.edit().putLong(KEY_LAST_COPY_LINK_AT, at).apply()
+    fun markCopyObserved(at: Long) {
+        preferences.edit().putLong(KEY_LAST_COPY_AT, at).apply()
     }
 
     fun read(): WeChatCaptureSignals {
         return WeChatCaptureSignals(
-            lastCopyTextAt = preferences.getLong(KEY_LAST_COPY_TEXT_AT, 0L),
-            lastCopyLinkAt = preferences.getLong(KEY_LAST_COPY_LINK_AT, 0L),
+            lastCopyAt = preferences.getLong(KEY_LAST_COPY_AT, 0L),
         )
     }
 
@@ -42,7 +35,6 @@ class WeChatCaptureSignalStore(context: Context) {
 
     private companion object {
         const val PREFERENCES_NAME = "wechat_capture_signals"
-        const val KEY_LAST_COPY_TEXT_AT = "last_copy_text_at"
-        const val KEY_LAST_COPY_LINK_AT = "last_copy_link_at"
+        const val KEY_LAST_COPY_AT = "last_copy_at"
     }
 }

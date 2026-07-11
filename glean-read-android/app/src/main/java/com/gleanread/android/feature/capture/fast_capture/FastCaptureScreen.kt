@@ -45,6 +45,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -52,6 +53,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -66,6 +68,7 @@ import com.gleanread.android.core.ui.component.ContextHintCard
 import com.gleanread.android.core.ui.component.RichExcerptCard
 import com.gleanread.android.feature.capture.fast_capture.component.FastCaptureLinkMenuPopup
 import com.gleanread.android.feature.capture.fast_capture.component.FastCaptureTagMenuPopup
+import kotlinx.coroutines.flow.first
 
 private val StringSetStateSaver = listSaver<MutableState<Set<String>>, String>(
     save = { state -> state.value.toList() },
@@ -80,6 +83,7 @@ fun FastCaptureScreen(
     onDismiss: () -> Unit,
     onOpenAccessibilitySettings: () -> Unit,
     onSaveQuickExcerpt: (thought: String, url: String, tagNames: Set<String>) -> Unit,
+    onSheetWindowFocused: () -> Unit = {},
 ) {
     val availableTags = uiState.availableTags
     val isSaving = uiState.isSaving
@@ -165,6 +169,13 @@ fun FastCaptureScreen(
         onDismiss = onDismiss,
         modifier = Modifier.fillMaxWidth(),
     ) {
+        // ModalBottomSheet 持有独立 dialog 窗口，剪贴板读取需在「持焦窗口」侧感知获焦时机：
+        // 部分 ROM 上 Activity 主窗口始终不获焦，这里读到的才是真正持有焦点的 sheet 窗口状态
+        val windowInfo = LocalWindowInfo.current
+        LaunchedEffect(windowInfo) {
+            snapshotFlow { windowInfo.isWindowFocused }.first { it }
+            onSheetWindowFocused()
+        }
         Box(
             modifier = Modifier
                 .fillMaxWidth()
