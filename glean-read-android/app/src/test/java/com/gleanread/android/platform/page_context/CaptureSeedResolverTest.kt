@@ -3,6 +3,7 @@ package com.gleanread.android.platform.page_context
 import android.content.Intent
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
+import com.gleanread.android.platform.page_context.wechat.WeChatCaptureContract
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -153,6 +154,78 @@ class CaptureSeedResolverTest {
         assertEquals("https://cached.example.com/page", seed.url)
         assertTrue(seed.usedCachedTitle)
         assertTrue(seed.usedCachedUrl)
+    }
+
+    @Test
+    fun `wechat capture action seeds from cache with empty content`() {
+        pageContextStore.save(
+            PageContextSnapshot(
+                sourcePackage = PageContextSupport.WeChatPackage,
+                sourceTitle = "公众号文章标题",
+                sourceUrl = "https://mp.weixin.qq.com/s/test",
+                capturedAt = 100L,
+                captureSource = PageContextSupport.AccessibilityCaptureSource,
+                confidence = 0.95f,
+            ),
+        )
+
+        val intent = Intent(WeChatCaptureContract.ActionWeChatCapture)
+
+        val seed = resolver.resolve(
+            intent = intent,
+            referrer = null,
+            now = 150L,
+        )
+
+        assertEquals("", seed.content)
+        assertEquals("公众号文章标题", seed.sourceTitle)
+        assertEquals("https://mp.weixin.qq.com/s/test", seed.url)
+        assertEquals(PageContextSupport.WeChatPackage, seed.sourcePackage)
+        assertTrue(seed.usedCachedTitle)
+        assertTrue(seed.usedCachedUrl)
+    }
+
+    @Test
+    fun `wechat capture action without cache keeps everything empty`() {
+        val intent = Intent(WeChatCaptureContract.ActionWeChatCapture)
+
+        val seed = resolver.resolve(
+            intent = intent,
+            referrer = null,
+            now = 150L,
+        )
+
+        assertEquals("", seed.content)
+        assertEquals("", seed.sourceTitle)
+        assertEquals("", seed.url)
+        assertEquals(PageContextSupport.WeChatPackage, seed.sourcePackage)
+        assertFalse(seed.usedCachedTitle)
+        assertFalse(seed.usedCachedUrl)
+    }
+
+    @Test
+    fun `wechat capture action ignores browser snapshot`() {
+        pageContextStore.save(
+            PageContextSnapshot(
+                sourcePackage = PageContextSupport.ChromePackage,
+                sourceTitle = "浏览器标题",
+                sourceUrl = "https://example.com",
+                capturedAt = 100L,
+                captureSource = PageContextSupport.AccessibilityCaptureSource,
+                confidence = 0.95f,
+            ),
+        )
+
+        val intent = Intent(WeChatCaptureContract.ActionWeChatCapture)
+
+        val seed = resolver.resolve(
+            intent = intent,
+            referrer = null,
+            now = 150L,
+        )
+
+        assertEquals("", seed.sourceTitle)
+        assertEquals("", seed.url)
     }
 
     @Test

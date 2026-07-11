@@ -3,6 +3,7 @@ package com.gleanread.android.platform.page_context
 import android.content.Intent
 import android.net.Uri
 import com.gleanread.android.platform.page_context.UrlExtractor
+import com.gleanread.android.platform.page_context.wechat.WeChatCaptureContract
 
 data class CaptureSeed(
     val content: String,
@@ -21,6 +22,11 @@ class CaptureSeedResolver(
         referrer: Uri?,
         now: Long = System.currentTimeMillis(),
     ): CaptureSeed {
+        // 微信气泡入口：正文留待获焦后从剪贴板填充，标题/URL 只认微信快照
+        if (intent?.action == WeChatCaptureContract.ActionWeChatCapture) {
+            return resolveWeChatCaptureSeed(now)
+        }
+
         val explicitContent = resolveExplicitContent(intent).trim()
         val explicitUrl = intent?.let(UrlExtractor::extract).orEmpty().trim()
         val explicitTitle = resolveExplicitTitle(intent, explicitContent, explicitUrl)
@@ -45,6 +51,27 @@ class CaptureSeedResolver(
             sourcePackage = sourcePackage.orEmpty(),
             usedCachedUrl = explicitUrl.isBlank() && finalUrl.isNotBlank(),
             usedCachedTitle = explicitTitle.isBlank() && finalTitle.isNotBlank(),
+        )
+    }
+
+    /**
+     * 微信气泡入口的初始 seed：content 恒空（禁止“标题回退为正文”），
+     * 标题与 URL 仅从未过期的微信快照补齐。
+     */
+    private fun resolveWeChatCaptureSeed(now: Long): CaptureSeed {
+        val snapshot = pageContextStore.readRecentSnapshot(
+            expectedSourcePackage = PageContextSupport.WeChatPackage,
+            now = now,
+        )
+        val cachedUrl = snapshot?.sourceUrl.orEmpty()
+        val cachedTitle = snapshot?.sourceTitle.orEmpty()
+        return CaptureSeed(
+            content = "",
+            url = cachedUrl,
+            sourceTitle = cachedTitle,
+            sourcePackage = PageContextSupport.WeChatPackage,
+            usedCachedUrl = cachedUrl.isNotBlank(),
+            usedCachedTitle = cachedTitle.isNotBlank(),
         )
     }
 

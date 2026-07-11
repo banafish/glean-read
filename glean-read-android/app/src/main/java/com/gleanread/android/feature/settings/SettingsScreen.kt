@@ -69,6 +69,7 @@ fun SettingsScreen(
     onThemeColorChange: (ThemeColor) -> Unit,
     isAccessibilityEnabled: Boolean,
     onOpenAccessibilitySettings: () -> Unit,
+    onWeChatBubbleEnabledChange: (Boolean) -> Unit = {},
     onSignOut: () -> Unit,
     onSyncNow: () -> Unit,
     onMergeLocalData: () -> Unit,
@@ -180,7 +181,9 @@ fun SettingsScreen(
 
             AccessibilitySection(
                 isAccessibilityEnabled = isAccessibilityEnabled,
+                isWeChatBubbleEnabled = uiState.isWeChatBubbleEnabled,
                 onOpenAccessibilitySettings = onOpenAccessibilitySettings,
+                onWeChatBubbleEnabledChange = onWeChatBubbleEnabledChange,
             )
 
             AboutSection(

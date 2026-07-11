@@ -11,6 +11,7 @@ import com.gleanread.android.data.local.WorkspaceDatabase
 import com.gleanread.android.data.local.WorkspaceDatabaseManager
 import com.gleanread.android.data.appearance.AppearancePreferencesRepository
 import com.gleanread.android.data.avatar.AvatarRepository
+import com.gleanread.android.data.capture.CapturePreferencesRepository
 import com.gleanread.android.data.remote.SupabaseConfig
 import com.gleanread.android.data.remote.SupabaseHttpClientFactory
 import com.gleanread.android.data.remote.SupabaseRealtimeClientFactory
@@ -197,6 +198,10 @@ class AppContainer(
         AppearancePreferencesRepository(appContext)
     }
 
+    val capturePreferencesRepository: CapturePreferencesRepository by lazy {
+        CapturePreferencesRepository(appContext)
+    }
+
     val avatarRepository: AvatarRepository by lazy {
         AvatarRepository(
             config = supabaseConfig,
@@ -238,6 +243,7 @@ class AppContainer(
                 authRepository = supabaseAuthRepository,
                 syncRepository = workspaceSyncRepository,
                 appearancePreferencesRepository = appearancePreferencesRepository,
+                capturePreferencesRepository = capturePreferencesRepository,
                 avatarRepository = avatarRepository,
                 aiConfigRepository = aiConfigRepository,
                 openAiOutlineGenerator = openAiOutlineGenerator,

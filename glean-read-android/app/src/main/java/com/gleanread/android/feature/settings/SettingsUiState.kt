@@ -12,6 +12,7 @@ data class SettingsUiState(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val themeColor: ThemeColor = ThemeColor.DYNAMIC,
     val isCloudSyncEnabled: Boolean = false,
+    val isWeChatBubbleEnabled: Boolean = true,
     val isSubmitting: Boolean = false,
     val isSyncing: Boolean = false,
     val lastSyncTime: Long? = null,

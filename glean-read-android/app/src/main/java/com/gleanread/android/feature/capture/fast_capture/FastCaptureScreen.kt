@@ -87,7 +87,8 @@ fun FastCaptureScreen(
     var selectedTags by rememberSaveable(saver = StringSetStateSaver) {
         mutableStateOf(emptySet<String>())
     }
-    var currentUrl by rememberSaveable { mutableStateOf(captureSeed.url) }
+    // 以 seed.url 为 key：微信气泡入口获焦后剪贴板补齐 URL 时，编辑框初值随之刷新
+    var currentUrl by rememberSaveable(captureSeed.url) { mutableStateOf(captureSeed.url) }
     val density = LocalDensity.current
     val isImeVisible = WindowInsets.ime.getBottom(density) > 0
     val shouldShowBackfillPrompt = captureSeed.usedCachedTitle || captureSeed.usedCachedUrl

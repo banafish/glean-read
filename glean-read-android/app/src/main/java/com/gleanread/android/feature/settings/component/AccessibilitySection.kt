@@ -18,8 +18,10 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -33,7 +35,9 @@ import com.gleanread.android.R
 @Composable
 fun AccessibilitySection(
     isAccessibilityEnabled: Boolean,
+    isWeChatBubbleEnabled: Boolean,
     onOpenAccessibilitySettings: () -> Unit,
+    onWeChatBubbleEnabledChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -133,6 +137,34 @@ fun AccessibilitySection(
                         } else {
                             stringResource(R.string.fast_capture_accessibility_action)
                         },
+                    )
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                // 微信摘录气泡开关：独立于系统无障碍服务状态，可单独关闭气泡而不必关服务
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.settings_wechat_bubble_title),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_wechat_bubble_body),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Switch(
+                        checked = isWeChatBubbleEnabled,
+                        onCheckedChange = onWeChatBubbleEnabledChange,
                     )
                 }
             }

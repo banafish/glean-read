@@ -10,6 +10,7 @@ import com.gleanread.android.data.appearance.ThemeColor
 import com.gleanread.android.data.appearance.ThemeMode
 import com.gleanread.android.data.avatar.AvatarRepository
 import com.gleanread.android.data.avatar.CompressedImage
+import com.gleanread.android.data.capture.CapturePreferencesRepository
 import com.gleanread.android.data.auth.AuthSession
 import com.gleanread.android.data.auth.LocalDataOwnershipChoice
 import com.gleanread.android.data.auth.LocalDataOwnershipResult
@@ -35,6 +36,7 @@ class SettingsViewModel(
     private val authRepository: SupabaseAuthRepository,
     private val syncRepository: WorkspaceSyncRepository,
     private val appearancePreferencesRepository: AppearancePreferencesRepository,
+    private val capturePreferencesRepository: CapturePreferencesRepository,
     private val avatarRepository: AvatarRepository,
     private val aiConfigRepository: AiConfigRepository,
     private val openAiOutlineGenerator: OpenAiCompatibleOutlineGenerator,
@@ -55,6 +57,7 @@ class SettingsViewModel(
         appearancePreferencesRepository.themeColorFlow,
         appearancePreferencesRepository.avatarUrlFlow,
         storedAiConfig,
+        capturePreferencesRepository.isWeChatBubbleEnabledFlow,
         formState,
     ) { args ->
         val session = args[0] as AuthSession?
@@ -64,7 +67,8 @@ class SettingsViewModel(
         val themeColor = args[4] as ThemeColor
         val avatarUrl = args[5] as String?
         val aiConfig = args[6] as AiConfig
-        val form = args[7] as SettingsFormState
+        val isWeChatBubbleEnabled = args[7] as Boolean
+        val form = args[8] as SettingsFormState
 
         SettingsUiState(
             isLoggedIn = session != null,
@@ -74,6 +78,7 @@ class SettingsViewModel(
             themeMode = themeMode,
             themeColor = themeColor,
             isCloudSyncEnabled = isCloudSyncEnabled,
+            isWeChatBubbleEnabled = isWeChatBubbleEnabled,
             isSubmitting = form.isSubmitting,
             isSyncing = syncState.isSyncing,
             lastSyncTime = syncState.lastSyncTime,
@@ -128,6 +133,13 @@ class SettingsViewModel(
     fun setThemeColor(color: ThemeColor) {
         viewModelScope.launch {
             appearancePreferencesRepository.setThemeColor(color)
+        }
+    }
+
+    /** 切换「微信摘录气泡」开关，无障碍服务会实时收集该偏好并生效 */
+    fun setWeChatBubbleEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            capturePreferencesRepository.setWeChatBubbleEnabled(enabled)
         }
     }
 

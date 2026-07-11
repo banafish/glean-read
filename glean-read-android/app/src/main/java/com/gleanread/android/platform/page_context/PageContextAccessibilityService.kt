@@ -2,12 +2,25 @@ package com.gleanread.android.platform.page_context
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
+import android.content.Intent
 import android.graphics.Rect
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import com.gleanread.android.app.appContainer
+import com.gleanread.android.platform.page_context.wechat.WeChatBubbleController
+import com.gleanread.android.platform.page_context.wechat.WeChatCaptureContract
+import com.gleanread.android.platform.page_context.wechat.WeChatCaptureCoordinator
+import com.gleanread.android.platform.page_context.wechat.WeChatCaptureSignalStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 class PageContextAccessibilityService : AccessibilityService() {
     private lateinit var pageContextStore: PageContextStore
+    private var wechatCoordinator: WeChatCaptureCoordinator? = null
+    private var serviceScope: CoroutineScope? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -18,15 +31,42 @@ class PageContextAccessibilityService : AccessibilityService() {
             flags = flags and AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS.inv()
             notificationTimeout = PageContextAccessibilityPolicy.NotificationTimeoutMillis
         }
+
+        wechatCoordinator?.destroy()
+        wechatCoordinator = WeChatCaptureCoordinator(
+            pageContextStore = pageContextStore,
+            signalStore = WeChatCaptureSignalStore(this),
+            onLaunchCapture = ::launchWeChatCapture,
+            bubbleFactory = { onTapped -> WeChatBubbleController(this, onTapped) },
+        )
+
+        // 服务自建作用域收集气泡开关，onDestroy 取消；开关关闭时协调器立即收起气泡
+        serviceScope?.cancel()
+        serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).also { scope ->
+            scope.launch {
+                appContainer.capturePreferencesRepository.isWeChatBubbleEnabledFlow.collect { enabled ->
+                    wechatCoordinator?.onBubbleEnabledChanged(enabled)
+                }
+            }
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val safeEvent = event ?: return
+        val packageName = safeEvent.packageName?.toString().orEmpty()
+
+        // 点击事件只服务于微信摘录触发，永不进入快照管线（浏览器路径零影响）
+        if (safeEvent.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED) {
+            if (PageContextAccessibilityPolicy.isWeChatCopyClickEvent(safeEvent.eventType, packageName)) {
+                wechatCoordinator?.onClickEvent(safeEvent) { rootInActiveWindow }
+            }
+            return
+        }
+
         if (!PageContextAccessibilityPolicy.shouldProcessEvent(safeEvent.eventType, safeEvent.contentChangeTypes)) {
             return
         }
 
-        val packageName = safeEvent.packageName?.toString().orEmpty()
         if (!PageContextSupport.isSupportedPackage(packageName)) return
 
         val roots = buildList {
@@ -37,6 +77,17 @@ class PageContextAccessibilityService : AccessibilityService() {
                 ?.takeIf { it.packageName?.toString().orEmpty() == packageName }
                 ?.let(::add)
         }
+
+        // 微信窗口事件全部改走专属标题管线（含文章页判定缓存失效），不再进入通用提取器
+        if (packageName == PageContextSupport.WeChatPackage) {
+            wechatCoordinator?.onWindowEvent(
+                event = safeEvent,
+                roots = roots,
+                screenHeight = resources.displayMetrics.heightPixels,
+            )
+            return
+        }
+
         if (roots.isEmpty()) return
 
         val previousSnapshot = pageContextStore.readRecentSnapshot(
@@ -59,6 +110,23 @@ class PageContextAccessibilityService : AccessibilityService() {
     }
 
     override fun onInterrupt() = Unit
+
+    override fun onDestroy() {
+        serviceScope?.cancel()
+        serviceScope = null
+        wechatCoordinator?.destroy()
+        wechatCoordinator = null
+        super.onDestroy()
+    }
+
+    private fun launchWeChatCapture() {
+        // 用隐式 action + 限定本包解析，避免 platform 层直接依赖 feature 层的 Activity 类
+        val intent = Intent(WeChatCaptureContract.ActionWeChatCapture).apply {
+            setPackage(packageName)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        runCatching { startActivity(intent) }
+    }
 
     private fun mergeWithRecentSnapshot(
         previous: PageContextSnapshot?,
@@ -127,7 +195,7 @@ private object PageContextNodeExtractor {
         val relevantNodes = nodes.filterNot(NodeText::belongsToShareSheet)
 
         val title = extractTitle(sourcePackage, event, relevantNodes.ifEmpty { nodes })
-        val url = extractUrl(sourcePackage, event, relevantNodes.ifEmpty { nodes })
+        val url = extractUrl(event, relevantNodes.ifEmpty { nodes })
         if (title.isBlank() && url.isBlank()) return null
 
         val confidence = when {
@@ -177,19 +245,11 @@ private object PageContextNodeExtractor {
     }
 
     private fun extractUrl(
-        sourcePackage: String,
         event: AccessibilityEvent,
         nodes: List<NodeText>,
     ): String {
-        val prioritized = when (sourcePackage) {
-            PageContextSupport.WeChatPackage -> {
-                nodes.filter { it.isHighConfidenceWeChatUrlNode() } + nodes
-            }
-
-            else -> {
-                nodes.filter { it.isHighConfidenceBrowserUrlNode() } + nodes
-            }
-        }
+        // 微信窗口事件已上游改道到 wechat 协调器，这里只服务浏览器宿主
+        val prioritized = nodes.filter { it.isHighConfidenceBrowserUrlNode() } + nodes
 
         val eventCandidates = buildList {
             addAll(event.text.orEmpty().map { it.toString() })
@@ -220,7 +280,6 @@ private object PageContextNodeExtractor {
 
         val hostMatch = hostRegex.find(trimmed)?.value.orEmpty()
         return when {
-            hostMatch.startsWith("mp.weixin.qq.com") -> "https://$hostMatch"
             looksLikeBrowserHost(hostMatch) -> "https://$hostMatch"
             else -> ""
         }
@@ -304,15 +363,6 @@ private data class NodeText(
             normalizedId.contains("address")
     }
 
-    fun isHighConfidenceWeChatUrlNode(): Boolean {
-        val normalizedId = viewId.lowercase()
-        return normalizedId.contains("url") ||
-            normalizedId.contains("address") ||
-            normalizedId.contains("toolbar") ||
-            text.contains("mp.weixin.qq.com") ||
-            contentDescription.contains("mp.weixin.qq.com")
-    }
-
     fun isTitleCandidate(sourcePackage: String): Boolean {
         if (text.isBlank()) return false
         if (boundsTop !in 0..520) return false
@@ -323,7 +373,6 @@ private data class NodeText(
             PageContextSupport.FirefoxPackage,
             PageContextSupport.EdgePackage,
             PageContextSupport.SamsungInternetPackage,
-            PageContextSupport.WeChatPackage,
             -> isHighConfidenceTitleNode() || boundsTop in 80..420
 
             else -> isHighConfidenceTitleNode()

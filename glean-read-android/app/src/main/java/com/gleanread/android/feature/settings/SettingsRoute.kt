@@ -72,6 +72,7 @@ fun SettingsRoute(
                 ),
             )
         },
+        onWeChatBubbleEnabledChange = viewModel::setWeChatBubbleEnabled,
         onSignOut = viewModel::signOut,
         onSyncNow = viewModel::syncNow,
         onMergeLocalData = { viewModel.chooseOwnership(LocalDataOwnershipChoice.MERGE_TO_ACCOUNT) },

@@ -27,6 +27,18 @@ internal object PageContextAccessibilityPolicy {
         }
     }
 
+    /**
+     * 点击事件只路由给微信摘录处理器，永不进入浏览器快照管线。
+     * 服务入口据此对 TYPE_VIEW_CLICKED 做 O(1) 分流。
+     */
+    fun isWeChatCopyClickEvent(
+        eventType: Int,
+        packageName: String,
+    ): Boolean {
+        return eventType == AccessibilityEvent.TYPE_VIEW_CLICKED &&
+            packageName == PageContextSupport.WeChatPackage
+    }
+
     fun shouldSkipStoreWrite(
         previous: PageContextSnapshot?,
         current: PageContextSnapshot,

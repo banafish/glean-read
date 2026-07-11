@@ -39,6 +39,38 @@ class PageContextAccessibilityPolicyTest {
     }
 
     @Test
+    fun `view clicked events never enter snapshot pipeline`() {
+        assertFalse(
+            PageContextAccessibilityPolicy.shouldProcessEvent(
+                eventType = AccessibilityEvent.TYPE_VIEW_CLICKED,
+                contentChangeTypes = 0,
+            ),
+        )
+    }
+
+    @Test
+    fun `wechat copy click routing only matches wechat click events`() {
+        assertTrue(
+            PageContextAccessibilityPolicy.isWeChatCopyClickEvent(
+                eventType = AccessibilityEvent.TYPE_VIEW_CLICKED,
+                packageName = PageContextSupport.WeChatPackage,
+            ),
+        )
+        assertFalse(
+            PageContextAccessibilityPolicy.isWeChatCopyClickEvent(
+                eventType = AccessibilityEvent.TYPE_VIEW_CLICKED,
+                packageName = PageContextSupport.ChromePackage,
+            ),
+        )
+        assertFalse(
+            PageContextAccessibilityPolicy.isWeChatCopyClickEvent(
+                eventType = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
+                packageName = PageContextSupport.WeChatPackage,
+            ),
+        )
+    }
+
+    @Test
     fun `duplicate snapshots inside refresh window skip store writes`() {
         val previous = snapshot(
             title = "page title",

@@ -46,6 +46,11 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
             </intent-filter>
+            <!-- 微信摘录气泡专用入口：无障碍服务点击气泡后以该 action 拉起弹窗 -->
+            <intent-filter>
+                <action android:name="com.gleanread.android.action.WECHAT_CAPTURE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
 
         <service
