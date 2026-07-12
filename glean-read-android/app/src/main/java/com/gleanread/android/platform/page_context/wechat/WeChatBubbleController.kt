@@ -52,6 +52,7 @@ class WeChatBubbleController(
     override fun show() {
         // 已在显示中：只重置自动消失计时，避免重复 addView 崩溃或视图叠加
         if (overlayView != null) {
+            WeChatCaptureDx.log { "bubble show: already visible, reset auto-dismiss" }
             scheduleAutoDismiss()
             return
         }
@@ -80,11 +81,13 @@ class WeChatBubbleController(
         // 个别 ROM 对 overlay 有额外限制，失败时静默放弃本次显示（分享路径不受影响）
         runCatching {
             windowManager.addView(view, layoutParams)
-        }.onFailure {
+        }.onFailure { error ->
+            WeChatCaptureDx.log { "bubble addView failed: ${error.javaClass.simpleName}: ${error.message}" }
             owner.destroy()
             return
         }
 
+        WeChatCaptureDx.log { "bubble addView ok" }
         overlayView = view
         overlayOwner = owner
         owner.moveToResumed()

@@ -144,6 +144,66 @@ class WeChatCaptureCoordinatorTest {
     }
 
     @Test
+    fun `queued toast marks signal with event time not processing time`() {
+        val coordinator = createCoordinator()
+
+        // 真机证据（Honor 冻结后台进程）：事件解冻后迟到送达，信号若记处理时刻，
+        // 会与剪贴板时间戳偏差出排队时长，击穿 15s 容差导致弹窗拒绝填充。
+        // 时钟起点调大避免 signalAt 落到夹具纪元之前
+        now = 300_000L
+        coordinator.handleCopyToast(
+            toastTexts = listOf("内容已复制"),
+            signalAt = now - 60_000L,
+            articleScan = { true },
+        )
+
+        assertEquals(now - 60_000L, signalStore.read().lastCopyAt)
+        assertEquals(1, bubble.showCount)
+    }
+
+    @Test
+    fun `queued toasts of distinct copies are both handled in one flush`() {
+        val coordinator = createCoordinator()
+
+        // 冻结期间复制两次，解冻后两条 toast 同一瞬间送达：去抖按信号时间判定，两次都应记录
+        now = 300_000L
+        coordinator.handleCopyToast(
+            toastTexts = listOf("内容已复制"),
+            signalAt = now - 60_000L,
+            articleScan = { true },
+        )
+        coordinator.handleCopyToast(
+            toastTexts = listOf("内容已复制"),
+            signalAt = now - 1_000L,
+            articleScan = { true },
+        )
+
+        assertEquals(now - 1_000L, signalStore.read().lastCopyAt)
+        assertEquals(2, bubble.showCount)
+    }
+
+    @Test
+    fun `queued duplicate toasts of same copy are debounced by signal time`() {
+        val coordinator = createCoordinator()
+
+        // 同一次复制派发的多条 toast 事件产生时间几乎相同，flush 后仍只处理第一条
+        now = 300_000L
+        coordinator.handleCopyToast(
+            toastTexts = listOf("内容已复制"),
+            signalAt = now - 60_000L,
+            articleScan = { true },
+        )
+        coordinator.handleCopyToast(
+            toastTexts = listOf("内容已复制"),
+            signalAt = now - 60_000L + 100L,
+            articleScan = { true },
+        )
+
+        assertEquals(now - 60_000L, signalStore.read().lastCopyAt)
+        assertEquals(1, bubble.showCount)
+    }
+
+    @Test
     fun `non article page never shows bubble`() {
         val coordinator = createCoordinator()
 

@@ -10,7 +10,7 @@ import com.gleanread.android.platform.page_context.PageContextSupport
 
 /**
  * 微信「复制即摘」协调器：
- * - 点击链路：去抖 → 按钮分类 → 公众号文章页判定 → 记录复制信号 → 弹出气泡；
+ * - 复制链路：toast 去抖（按事件产生时刻）→ 文案分类 → 公众号文章页判定 → 记录复制信号 → 弹出气泡；
  * - 标题链路：微信窗口事件 → 收集节点（标记是否在网页容器内）→ 打分提取标题 → 写入快照。
  * Android 依赖集中在这里，规则判断全部下沉到可单测的纯逻辑类。
  */
@@ -29,9 +29,15 @@ class WeChatCaptureCoordinator(
     // 最近一次微信窗口切换的窗口类名；公众号文章页类名含 WebView（真机证据：TmplWebViewMMUI）
     private var lastWindowClassName = ""
 
-    /** 服务转发的微信「复制成功」toast 事件入口 */
+    /**
+     * 服务转发的微信「复制成功」toast 事件入口。
+     * @param signalAt 事件产生时刻（服务侧由 eventTime 还原）：宿主进程被 ROM 冻结时
+     * 事件会排队多秒后集中送达（真机证据：Honor 后台冻结），复制信号必须记产生时刻
+     * 而非处理时刻，否则与剪贴板时间戳的偏差会击穿弹窗侧的新鲜度容差。
+     */
     fun onCopyToastEvent(
         event: AccessibilityEvent,
+        signalAt: Long,
         rootProvider: () -> AccessibilityNodeInfo?,
     ) {
         val toastTexts = buildList {
@@ -39,10 +45,14 @@ class WeChatCaptureCoordinator(
                 text?.toString()?.let(::add)
             }
         }
-        handleCopyToast(toastTexts) {
+        handleCopyToast(toastTexts, signalAt) {
             // toast 事件不属于任何窗口（windowId=-1），改用当前活动窗口根节点做文章页判定
             val root = rootProvider()
-            root != null && detector.isArticlePage(root.windowId) { root }
+            val scanResult = root != null && detector.isArticlePage(root.windowId) { root }
+            WeChatCaptureDx.log {
+                "articleScan: root=${root?.packageName ?: "null"} windowId=${root?.windowId} result=$scanResult"
+            }
+            scanResult
         }
     }
 
@@ -92,30 +102,43 @@ class WeChatCaptureCoordinator(
         detector.invalidate()
         if (isActivityWindowClassName(className)) {
             lastWindowClassName = className
+            WeChatCaptureDx.log { "window class recorded: $className" }
+        } else {
+            WeChatCaptureDx.log { "window class ignored (non-activity): $className" }
         }
     }
 
     /** 复制成功 toast 处理主干；事件字段提取与其解耦，便于纯逻辑单测 */
     internal fun handleCopyToast(
         toastTexts: List<String>,
+        signalAt: Long = clock(),
         articleScan: () -> Boolean,
     ) {
-        val now = clock()
-        // 微信一次复制可能派发多条 toast，只处理第一条
-        if (now - lastHandledCopyAt < WeChatCaptureContract.CopyToastDebounceMillis) {
+        // 微信一次复制可能派发多条 toast，按事件产生时刻去抖：
+        // 冻结解冻后多条事件会在同一瞬间集中送达，若按处理时刻去抖，
+        // 冻结期间的两次独立复制会被误并为一次
+        if (signalAt - lastHandledCopyAt < WeChatCaptureContract.CopyToastDebounceMillis) {
+            WeChatCaptureDx.log { "copy toast dropped: debounce (sinceLast=${signalAt - lastHandledCopyAt}ms)" }
             return
         }
 
-        if (!WeChatCopyToastClassifier.isCopySuccess(toastTexts)) return
+        if (!WeChatCopyToastClassifier.isCopySuccess(toastTexts)) {
+            WeChatCaptureDx.log { "copy toast dropped: classifier miss texts=$toastTexts" }
+            return
+        }
 
         // 仅公众号文章页触发（聊天等原生页面复制不打扰）：
         // 主判定为节点扫描找网页容器，兜底为活动窗口类名含 WebView（部分内核不暴露网页节点）
         val isArticle = articleScan() ||
             WeChatArticlePageDetector.isWebContainerClassName(lastWindowClassName)
-        if (!isArticle) return
+        if (!isArticle) {
+            WeChatCaptureDx.log { "copy toast dropped: not article (lastWindowClass=$lastWindowClassName)" }
+            return
+        }
 
-        lastHandledCopyAt = now
-        signalStore.markCopyObserved(now)
+        lastHandledCopyAt = signalAt
+        signalStore.markCopyObserved(signalAt)
+        WeChatCaptureDx.log { "copy signal marked at=$signalAt lagMs=${clock() - signalAt} bubbleEnabled=$isBubbleEnabled" }
 
         // 开关关闭时仍记录信号（供弹窗剪贴板校验），但不打扰用户
         if (isBubbleEnabled) {

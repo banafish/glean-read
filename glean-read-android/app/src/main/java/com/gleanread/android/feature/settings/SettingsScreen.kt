@@ -69,6 +69,7 @@ fun SettingsScreen(
     onThemeColorChange: (ThemeColor) -> Unit,
     isAccessibilityEnabled: Boolean,
     onOpenAccessibilitySettings: () -> Unit,
+    onOpenAppInfoSettings: () -> Unit = {},
     onWeChatBubbleEnabledChange: (Boolean) -> Unit = {},
     onSignOut: () -> Unit,
     onSyncNow: () -> Unit,
@@ -183,6 +184,7 @@ fun SettingsScreen(
                 isAccessibilityEnabled = isAccessibilityEnabled,
                 isWeChatBubbleEnabled = uiState.isWeChatBubbleEnabled,
                 onOpenAccessibilitySettings = onOpenAccessibilitySettings,
+                onOpenAppInfoSettings = onOpenAppInfoSettings,
                 onWeChatBubbleEnabledChange = onWeChatBubbleEnabledChange,
             )
 

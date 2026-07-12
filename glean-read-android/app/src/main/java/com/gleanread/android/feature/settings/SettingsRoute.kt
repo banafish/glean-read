@@ -3,6 +3,7 @@ package com.gleanread.android.feature.settings
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Composable
@@ -71,6 +72,17 @@ fun SettingsRoute(
                     Intent.FLAG_ACTIVITY_NEW_TASK,
                 ),
             )
+        },
+        onOpenAppInfoSettings = {
+            // 应用信息页含启动管理 / 电池策略入口，用于解除激进 ROM 的后台限制；
+            // 个别 ROM 可能不响应该 action，失败时静默放弃
+            runCatching {
+                context.startActivity(
+                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                        .setData(Uri.fromParts("package", context.packageName, null))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            }
         },
         onWeChatBubbleEnabledChange = viewModel::setWeChatBubbleEnabled,
         onSignOut = viewModel::signOut,

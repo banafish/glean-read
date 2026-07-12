@@ -11,6 +11,7 @@ import com.gleanread.android.platform.page_context.CaptureSeed
 import com.gleanread.android.platform.page_context.CaptureSeedResolver
 import com.gleanread.android.platform.page_context.PageContextStore
 import com.gleanread.android.platform.page_context.wechat.WeChatCaptureContract
+import com.gleanread.android.platform.page_context.wechat.WeChatCaptureDx
 import com.gleanread.android.platform.page_context.wechat.WeChatCaptureSignalStore
 import com.gleanread.android.platform.page_context.wechat.WeChatClipboardResolver
 import com.gleanread.android.core.ui.theme.GleanReadTheme
@@ -84,12 +85,20 @@ class FastCaptureActivity : ComponentActivity() {
 
         val currentSeed = captureSeedState ?: return
         val now = System.currentTimeMillis()
+        val clip = readPrimaryClip()
+        val signals = WeChatCaptureSignalStore(applicationContext).read()
         val updatedSeed = WeChatClipboardResolver.applyToSeed(
             seed = currentSeed,
-            clip = readPrimaryClip(),
-            signals = WeChatCaptureSignalStore(applicationContext).read(),
+            clip = clip,
+            signals = signals,
             now = now,
-        ) ?: return
+        )
+        // 剪贴板校验结果：定位「信号缺失/过期导致正文未填充」类问题
+        WeChatCaptureDx.log {
+            "clipboard seed: clipTs=${clip?.timestampMillis} textLen=${clip?.text?.length} " +
+                "lastCopyAt=${signals.lastCopyAt} now=$now applied=${updatedSeed != null}"
+        }
+        if (updatedSeed == null) return
 
         // 识别到公众号链接时回写快照，同一文章的后续摘录可复用
         if (updatedSeed.url.isNotBlank() && updatedSeed.url != currentSeed.url) {

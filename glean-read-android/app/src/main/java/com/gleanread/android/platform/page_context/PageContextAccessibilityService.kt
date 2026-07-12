@@ -4,12 +4,14 @@ import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.Intent
 import android.graphics.Rect
+import android.os.SystemClock
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.gleanread.android.app.appContainer
 import com.gleanread.android.platform.page_context.wechat.WeChatBubbleController
 import com.gleanread.android.platform.page_context.wechat.WeChatCaptureContract
 import com.gleanread.android.platform.page_context.wechat.WeChatCaptureCoordinator
+import com.gleanread.android.platform.page_context.wechat.WeChatCaptureDx
 import com.gleanread.android.platform.page_context.wechat.WeChatCaptureSignalStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -24,6 +26,8 @@ class PageContextAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        // 服务（重）连接是排查事件缺失的重要锚点：ROM 杀进程后重连会在此留痕
+        WeChatCaptureDx.log { "service connected" }
         pageContextStore = PageContextStore(this)
         serviceInfo = serviceInfo.apply {
             flags = flags or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
@@ -59,8 +63,21 @@ class PageContextAccessibilityService : AccessibilityService() {
         // toast 事件 windowId=-1，交协调器用当前活动窗口做文章页判定。
         if (safeEvent.eventType == AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED) {
             val className = safeEvent.className?.toString().orEmpty()
-            if (PageContextAccessibilityPolicy.isWeChatCopyToastEvent(safeEvent.eventType, packageName, className)) {
-                wechatCoordinator?.onCopyToastEvent(safeEvent) { rootInActiveWindow }
+            val matched = PageContextAccessibilityPolicy.isWeChatCopyToastEvent(safeEvent.eventType, packageName, className)
+            // 宿主进程被 ROM 冻结时事件会排队多秒后集中送达（真机证据：Honor 后台冻结）。
+            // eventTime 为事件产生时刻（uptime 基准），据此还原排队时长；异常值（0 或超前）按未排队处理
+            val uptimeNow = SystemClock.uptimeMillis()
+            val queuedMillis = if (safeEvent.eventTime in 1..uptimeNow) uptimeNow - safeEvent.eventTime else 0L
+            WeChatCaptureDx.log {
+                "notification event: pkg=$packageName class=$className texts=${safeEvent.text} " +
+                    "queuedMs=$queuedMillis matched=$matched activePkg=${rootInActiveWindow?.packageName}"
+            }
+            if (matched) {
+                // 复制信号记事件产生时刻而非处理时刻，保证与剪贴板时间戳可比
+                wechatCoordinator?.onCopyToastEvent(
+                    event = safeEvent,
+                    signalAt = System.currentTimeMillis() - queuedMillis,
+                ) { rootInActiveWindow }
             }
             return
         }
@@ -82,6 +99,13 @@ class PageContextAccessibilityService : AccessibilityService() {
 
         // 微信窗口事件全部改走专属标题管线（含文章页判定缓存失效），不再进入通用提取器
         if (packageName == PageContextSupport.WeChatPackage) {
+            // 仅记录窗口切换（内容变化事件高频，避免刷屏）；queuedMs 含义同 toast 埋点
+            if (safeEvent.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+                WeChatCaptureDx.log {
+                    val queuedMillis = SystemClock.uptimeMillis() - safeEvent.eventTime
+                    "wechat window state: class=${safeEvent.className} queuedMs=$queuedMillis"
+                }
+            }
             wechatCoordinator?.onWindowEvent(
                 event = safeEvent,
                 roots = roots,

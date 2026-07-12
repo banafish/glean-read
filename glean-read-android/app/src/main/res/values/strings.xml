@@ -182,6 +182,9 @@
     <string name="wechat_capture_bubble_content_description">摘录刚复制的内容</string>
     <string name="settings_wechat_bubble_title">微信摘录气泡</string>
     <string name="settings_wechat_bubble_body">在公众号文章里复制文字或链接后弹出摘录气泡。需先开启辅助识别。</string>
+    <string name="settings_background_restriction_title">气泡不弹出或内容缺失？</string>
+    <string name="settings_background_restriction_body">部分手机系统会为省电冻结后台应用，可能导致复制后气泡不弹出、切回本应用才弹出，或摘录内容未自动填充。遇到这类情况，可在系统设置中允许本应用自启动与后台活动、将电池策略设为不受限制，并在最近任务中锁定本应用。</string>
+    <string name="settings_background_restriction_action">前往应用信息页</string>
 
     <string name="settings_account_title">账号</string>
     <string name="settings_accessibility_body">开启辅助识别后，极速摘录可尝试从浏览器或公众号页面自动补齐标题与链接。</string>
