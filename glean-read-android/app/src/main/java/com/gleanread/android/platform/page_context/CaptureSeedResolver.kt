@@ -27,6 +27,12 @@ class CaptureSeedResolver(
             return resolveWeChatCaptureSeed(now)
         }
 
+        // 浏览器划词 deep link 入口：URL/标题/选中文本随启动 intent 原子送达，
+        // 不读快照、不走启发式；url 参数缺失时回落到下方通用逻辑当普通 intent 处理
+        if (WebCaptureContract.isWebCaptureIntent(intent)) {
+            resolveWebCaptureSeed(intent, referrer)?.let { return it }
+        }
+
         val explicitContent = resolveExplicitContent(intent).trim()
         val explicitUrl = intent?.let(UrlExtractor::extract).orEmpty().trim()
         val explicitTitle = resolveExplicitTitle(intent, explicitContent, explicitUrl)
@@ -72,6 +78,28 @@ class CaptureSeedResolver(
             sourcePackage = PageContextSupport.WeChatPackage,
             usedCachedUrl = cachedUrl.isNotBlank(),
             usedCachedTitle = cachedTitle.isNotBlank(),
+        )
+    }
+
+    /**
+     * 浏览器划词 deep link 的 seed：三项数据全部取自 `gleanread://capture` 的
+     * query 参数（`Uri.getQueryParameter` 已完成 URL 解码），保证与页面实际内容
+     * 一致，因此不读快照、不标记 usedCached。url 参数缺失视为非法触达，
+     * 返回 null 交由通用逻辑兜底。
+     */
+    private fun resolveWebCaptureSeed(intent: Intent?, referrer: Uri?): CaptureSeed? {
+        val data = intent?.data ?: return null
+        val url = data.getQueryParameter(WebCaptureContract.ParamUrl)?.trim().orEmpty()
+        if (url.isBlank()) return null
+        val title = data.getQueryParameter(WebCaptureContract.ParamTitle)?.trim().orEmpty()
+        val text = data.getQueryParameter(WebCaptureContract.ParamText)?.trim().orEmpty()
+        return CaptureSeed(
+            content = text,
+            url = url,
+            sourceTitle = title,
+            sourcePackage = resolveSourcePackage(intent, referrer).orEmpty(),
+            usedCachedUrl = false,
+            usedCachedTitle = false,
         )
     }
 

@@ -51,6 +51,15 @@
                 <action android:name="com.gleanread.android.action.WECHAT_CAPTURE" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <!-- 浏览器划词摘录 deep link：userscript 组装 gleanread://capture?url=&title=&text= 直达弹窗 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="gleanread"
+                    android:host="capture" />
+            </intent-filter>
         </activity>
 
         <service
